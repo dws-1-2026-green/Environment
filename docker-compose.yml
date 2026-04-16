@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  event-receiver:
+    image: ghcr.io/dws-1-2026-green/eventreceiver:master
+    container_name: event-receiver
+    environment:
+      KAFKA_BROKERS: kafka:9094
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    networks:
+      - kafka-net
+  subscriptions:
+    image: ghcr.io/dws-1-2026-green/subscriptions:main
+    container_name: subscriptions
+    environment:
+      KAFKA_BROKERS: kafka:9094
+      STORE_BACKEND: postgres
+      DATABASE_URL: postgres://green:green-password@postgres:5432/green?sslmode=disable
+      SUBSCRIPTIONS_API_BASE_URL: http://external-api:8080
+    networks:
+      - kafka-net
+      - postgres-net
+    depends_on:
+      - kafka
+      - postgres
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      
+      # Слушаем на двух портах:
+      # 9092 - для подключений с хоста
+      # 9094 - для подключений внутри Docker-сети
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      
+      # Рекламируем оба адреса:
+      # localhost:9092 - для приложений на хосте
+      # kafka:9094 - для сервисов внутри Docker (kafka-ui)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:9094
+      
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - kafka-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9094
+    ports:
+      - "8081:8080"
+    networks:
+      - kafka-net
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: green
+      POSTGRES_PASSWORD: green-password
+      POSTGRES_DB: green
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - postgres-net
+
+networks:
+  kafka-net:
+    driver: bridge
+  postgres-net:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  postgres_data:
