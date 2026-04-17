@@ -4,6 +4,7 @@ services:
   event-receiver:
     image: ghcr.io/dws-1-2026-green/eventreceiver:master
     container_name: event-receiver
+    restart: unless-stopped
     environment:
       KAFKA_BROKERS: kafka:9094
     ports:
@@ -12,9 +13,21 @@ services:
       - kafka
     networks:
       - kafka-net
+  delivery-service:
+    image: ghcr.io/dws-1-2026-green/delivery-service:develop
+    container_name: delivery-service
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKERS: kafka:9094
+      KAFKA_TOPIC: deliveries.to_send
+    depends_on:
+      - kafka
+    networks:
+      - kafka-net
   subscriptions:
     image: ghcr.io/dws-1-2026-green/subscriptions:main
     container_name: subscriptions
+    restart: unless-stopped
     environment:
       KAFKA_BROKERS: kafka:9094
       STORE_BACKEND: postgres
@@ -29,6 +42,7 @@ services:
   kafka:
     image: apache/kafka:latest
     container_name: kafka
+    restart: unless-stopped
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -58,6 +72,7 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
+    restart: unless-stopped
     depends_on:
       - kafka
     environment:
