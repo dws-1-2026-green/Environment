@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   event-receiver:
@@ -35,21 +35,23 @@ services:
     image: ghcr.io/dws-1-2026-green/subscriptions:main
     container_name: subscriptions
     restart: unless-stopped
+
     environment:
       KAFKA_BROKERS: kafka:9094
-      STORE_BACKEND: postgres
-      DATABASE_URL: postgres://green:green-password@postgres:5432/green?sslmode=disable
-      SUBSCRIPTIONS_API_BASE_URL: http://external-api:8080
+      STORE_BACKEND: cassandra
+      CASSANDRA_HOSTS: cassandra
       METRICS_ADDR: ":9091"
     ports:
       - "9091:9091"
     networks:
       - kafka-net
-      - postgres-net
+      - cassandra-net
       - monitoring-net
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_started
+      cassandra:
+        condition: service_healthy
 
   kafka:
     image: apache/kafka:latest
@@ -95,19 +97,39 @@ services:
     networks:
       - kafka-net
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    environment:
-      POSTGRES_USER: green
-      POSTGRES_PASSWORD: green-password
-      POSTGRES_DB: green
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: "WebhooksCluster"
+      CASSANDRA_DC: "dc1"
+      CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
+      MAX_HEAP_SIZE: "512M"
+      HEAP_NEWSIZE: "100M"
     networks:
-      - postgres-net
+      - cassandra-net
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: [ "CMD", "cqlsh", "-e", "describe keyspaces" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  cassandra-init:
+    image: cassandra:4.1
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/20260428192921_init.up.cql:/schema.cql:ro
+    command: [ "cqlsh", "cassandra", "-f", "/schema.cql" ]
+    restart: "no"
+    networks:
+      - cassandra-net
 
   prometheus:
     image: prom/prometheus:latest
@@ -117,10 +139,10 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
     ports:
       - "9090:9090"
     depends_on:
@@ -151,7 +173,7 @@ services:
 networks:
   kafka-net:
     driver: bridge
-  postgres-net:
+  cassandra-net:
     driver: bridge
   monitoring-net:
     driver: bridge
@@ -161,3 +183,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  cassandra_data:
