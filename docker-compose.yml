@@ -13,6 +13,8 @@ services:
       - kafka
     networks:
       - kafka-net
+      - monitoring-net
+
   delivery-service:
     image: ghcr.io/dws-1-2026-green/delivery-service:develop
     container_name: delivery-service
@@ -20,10 +22,15 @@ services:
     environment:
       KAFKA_BROKERS: kafka:9094
       KAFKA_TOPIC: deliveries.to_send
+      METRICS_ADDR: ":9095"
+    ports:
+      - "9095:9095"
     depends_on:
       - kafka
     networks:
       - kafka-net
+      - monitoring-net
+
   subscriptions:
     image: ghcr.io/dws-1-2026-green/subscriptions:main
     container_name: subscriptions
@@ -33,12 +40,17 @@ services:
       STORE_BACKEND: postgres
       DATABASE_URL: postgres://green:green-password@postgres:5432/green?sslmode=disable
       SUBSCRIPTIONS_API_BASE_URL: http://external-api:8080
+      METRICS_ADDR: ":9091"
+    ports:
+      - "9091:9091"
     networks:
       - kafka-net
       - postgres-net
+      - monitoring-net
     depends_on:
       - kafka
       - postgres
+
   kafka:
     image: apache/kafka:latest
     container_name: kafka
@@ -47,18 +59,18 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      
+
       # Слушаем на двух портах:
       # 9092 - для подключений с хоста
       # 9094 - для подключений внутри Docker-сети
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      
+
       # Рекламируем оба адреса:
       # localhost:9092 - для приложений на хосте
       # kafka:9094 - для сервисов внутри Docker (kafka-ui)
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:9094
-      
+
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -82,6 +94,7 @@ services:
       - "8081:8080"
     networks:
       - kafka-net
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -96,12 +109,55 @@ services:
     networks:
       - postgres-net
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - event-receiver
+      - subscriptions
+      - delivery-service
+    networks:
+      - monitoring-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-net
+
 networks:
   kafka-net:
     driver: bridge
   postgres-net:
     driver: bridge
+  monitoring-net:
+    driver: bridge
 
 volumes:
   kafka-data:
   postgres_data:
+  prometheus_data:
+  grafana_data:
