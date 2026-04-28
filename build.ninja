@@ -1,0 +1,60 @@
+# Ninja build configuration for Event Sender and Event Receiver CLI applications
+# Windows-compatible build system
+
+# Variables
+builddir = bin
+goflags = -v
+sender_pkg = ./cmd/event-sender
+receiver_pkg = ./cmd/event-receiver
+sender_bin = $builddir/event-sender.exe
+receiver_bin = $builddir/event-receiver.exe
+
+# Rules
+rule go_build
+  command = go build $goflags -o $out $in
+  description = Building $out
+
+rule go_run
+  command = go run $in
+  description = Running $out
+
+rule go_clean
+  command = powershell -Command "if (Test-Path $builddir) { Remove-Item -Recurse -Force $builddir }"
+  description = Cleaning build directory
+
+rule go_mod
+  command = go mod tidy
+  description = Tidying go.mod
+
+# Build targets
+build $sender_bin: go_build $sender_pkg/main.go
+build $receiver_bin: go_build $receiver_pkg/main.go
+
+# Phony targets
+build build-sender: phony $sender_bin
+build build-receiver: phony $receiver_bin
+build build-all: phony $sender_bin $receiver_bin
+
+build run-sender: phony
+  command = go run $sender_pkg/main.go
+  description = Running event-sender
+
+build run-receiver: phony
+  command = go run $receiver_pkg/main.go
+  description = Running event-receiver
+
+build run-sender-built: phony $sender_bin
+  command = $sender_bin
+
+build run-receiver-built: phony $receiver_bin
+  command = $receiver_bin
+
+build tidy: phony
+  command = go mod tidy
+  description = Running go mod tidy
+
+build clean: phony
+  command = powershell -Command "if (Test-Path bin) { Remove-Item -Recurse -Force bin; Write-Host 'Cleaned bin directory' } else { Write-Host 'bin directory does not exist' }"
+  description = Cleaning build directory
+
+default build-all
