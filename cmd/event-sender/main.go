@@ -11,12 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 )
 
 const (
-	defaultEventReceiverURL = "http://localhost:8080"
+	defaultEventReceiverURL = "http://127.0.0.1:8080"
 )
 
 type EventPayload struct {
@@ -40,39 +42,53 @@ func NewSender(baseURL, sourceName string) *Sender {
 	}
 }
 
-func (s *Sender) SendEvent(count int, eventType string, data map[string]interface{}) error {
+func (s *Sender) SendEvent(count int, eventType string, data map[string]interface{}) {
+	var wg sync.WaitGroup
+	var success int64 = 0
+	
+	const maxConcurrent = 100
+	semaphore := make(chan struct{}, maxConcurrent)
+	
 	for i := 0; i < count; i++ {
-		event := EventPayload{
-			ID:        "evt_" + uuid.NewString()[:12],
-			Type:      eventType,
-			CreatedAt: time.Now().UTC().Format(time.RFC3339),
-			Data:      data,
-		}
+		wg.Add(1)
+		go func () {
+			defer wg.Done()
+			
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			
+			event := EventPayload{
+				ID:        "evt_" + uuid.NewString()[:12],
+				Type:      eventType,
+				CreatedAt: time.Now().UTC().Format(time.RFC3339),
+				Data:      data,
+			}
 
-		payloadBytes, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("failed to marshal event: %w", err)
-		}
+			payloadBytes, err := json.Marshal(event)
+			if err != nil {
+				fmt.Printf("[%d/%d] Failed to marshal event: %w", i+1, count, err)
+				return
+			}
 
-		endpoint := fmt.Sprintf("%s/sources/%s/events", s.baseURL, s.sourceName)
-		resp, err := s.httpClient.Post(endpoint, "application/json", bytes.NewBuffer(payloadBytes))
-		if err != nil {
-			return fmt.Errorf("failed to send event: %w", err)
-		}
-		defer resp.Body.Close()
+			endpoint := fmt.Sprintf("%s/sources/%s/events", s.baseURL, s.sourceName)
+			resp, err := s.httpClient.Post(endpoint, "application/json", bytes.NewBuffer(payloadBytes))
+			if err != nil {
+				fmt.Printf("[%d/%d] Failed to send event: %v\n", i+1, count, err);
+				return
+			}
+			defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-		}
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+				fmt.Printf("[%d/%d] Unexpected status code: %d", i+1, count, resp.StatusCode)
+				return
+			}
 
-		fmt.Printf("[%d/%d] Event sent: %s (type: %s)\n", i+1, count, event.ID, eventType)
-
-		if count > 1 && i < count-1 {
-			time.Sleep(100 * time.Millisecond)
-		}
+			atomic.AddInt64(&success, 1)
+			fmt.Printf("[%d/%d] Event sent: %s (type: %s)\n", i+1, count, event.ID, eventType)
+		} ()
 	}
-
-	return nil
+	wg.Wait()
+	fmt.Printf("Success: %d/%d\n", success, count)
 }
 
 func parsePayload(payloadStr string) (map[string]interface{}, error) {
@@ -153,11 +169,7 @@ func main() {
 			}
 
 			// Send events
-			err = sender.SendEvent(count, eventType, data)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				continue
-			}
+			sender.SendEvent(count, eventType, data)
 
 		default:
 			fmt.Println("Unknown command. Use 'send' or 'exit'")
