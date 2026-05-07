@@ -15,7 +15,7 @@ scrape_configs:
 
   - job_name: 'subscriptions-api'
     static_configs:
-      - targets: ['subscriptions-api:8080']
+      - targets: ['subscriptions-api:8082']
     metrics_path: '/metrics'
 
   - job_name: 'delivery-service'
