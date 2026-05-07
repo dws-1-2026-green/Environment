@@ -31,6 +31,26 @@ services:
       - kafka-net
       - monitoring-net
 
+  subscriptions-api:
+    image: ghcr.io/dws-1-2026-green/subscriptions-api:main
+    container_name: subscriptions-api
+    restart: unless-stopped
+
+    environment:
+      STORE_BACKEND: cassandra
+      CASSANDRA_HOSTS: cassandra
+    ports:
+      - "8080:8080"
+    networks:
+      - kafka-net
+      - cassandra-net
+      - monitoring-net
+    depends_on:
+      kafka:
+        condition: service_started
+      cassandra:
+        condition: service_healthy
+
   subscriptions-worker:
     image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
     container_name: subscriptions-worker
