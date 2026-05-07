@@ -31,9 +31,9 @@ services:
       - kafka-net
       - monitoring-net
 
-  subscriptions:
-    image: ghcr.io/dws-1-2026-green/subscriptions:main
-    container_name: subscriptions
+  subscriptions-worker:
+    image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
+    container_name: subscriptions-worker
     restart: unless-stopped
 
     environment:
@@ -147,7 +147,7 @@ services:
       - "9090:9090"
     depends_on:
       - event-receiver
-      - subscriptions
+      - subscriptions-worker
       - delivery-service
     networks:
       - monitoring-net
