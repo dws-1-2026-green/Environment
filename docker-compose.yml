@@ -47,8 +47,6 @@ services:
       - cassandra-net
       - monitoring-net
     depends_on:
-      kafka:
-        condition: service_started
       cassandra:
         condition: service_healthy
 
