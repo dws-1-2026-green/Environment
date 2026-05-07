@@ -19,3 +19,15 @@ CREATE TABLE IF NOT EXISTS webhooks.subscriptions (
 ) WITH CLUSTERING ORDER BY (subscription_id ASC)
   AND default_time_to_live = 0
   AND gc_grace_seconds = 86400;
+
+-- Table for subscriptions by ID (for CRUD operations)
+CREATE TABLE IF NOT EXISTS webhooks.subscriptions_by_id (
+  subscription_id uuid PRIMARY KEY,
+  source text,
+  event_type text,
+  destination_url text,
+  http_method text,
+  headers frozen<map<text, text>>,
+  enabled boolean,
+  created_at timestamp
+);

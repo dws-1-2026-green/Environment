@@ -144,7 +144,7 @@ services:
       cassandra:
         condition: service_healthy
     volumes:
-      - ./cassandra/20260428192921_init.up.cql:/schema.cql:ro
+      - ./cassandra/init.up.cql:/schema.cql:ro
     command: [ "cqlsh", "cassandra", "-f", "/schema.cql" ]
     restart: "no"
     networks:
