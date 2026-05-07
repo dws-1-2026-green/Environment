@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -14,27 +15,26 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type WebhookServer struct {
-	mu         sync.RWMutex
-	lastEvents map[string][]byte // key: eventType, value: last received payload
-	httpServer *http.Server
-	listener   net.Listener
-	dbConn     *pgx.Conn
-	localPort  string
-	localHost  string
-	instanceID string
+	mu           sync.RWMutex
+	lastEvents   map[string][]byte // key: eventType, value: last received payload
+	httpServer   *http.Server
+	listener     net.Listener
+	httpClient   *http.Client
+	subsBaseURL  string
+	localPort    string
+	instanceID   string
 }
 
-func NewWebhookServer(dbConn *pgx.Conn, localPort string) *WebhookServer {
+func NewWebhookServer(subsBaseURL, localPort string) *WebhookServer {
 	return &WebhookServer{
-		lastEvents: make(map[string][]byte),
-		dbConn:     dbConn,
-		localPort:  localPort,
-		localHost:  "localhost",
-		instanceID: uuid.NewString()[:8],
+		lastEvents:  make(map[string][]byte),
+		httpClient:  &http.Client{Timeout: 10 * time.Second},
+		subsBaseURL: strings.TrimSuffix(subsBaseURL, "/"),
+		localPort:   localPort,
+		instanceID:  uuid.NewString()[:8],
 	}
 }
 
@@ -67,13 +67,11 @@ func (ws *WebhookServer) Start(addr string) error {
 }
 
 func (ws *WebhookServer) handleWebhook(w http.ResponseWriter, r *http.Request) {
-	// Extract event type from path (e.g., /order.created)
 	eventType := strings.TrimPrefix(r.URL.Path, "/")
 	if eventType == "" {
 		eventType = r.Header.Get("X-Event-Type")
 	}
 
-	// For GET requests, return last payload
 	if r.Method == http.MethodGet {
 		ws.mu.RLock()
 		lastPayload := ws.lastEvents[eventType]
@@ -89,7 +87,6 @@ func (ws *WebhookServer) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For POST/PUT/PATCH, receive and store payload
 	if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
 		var payload map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -126,94 +123,82 @@ func (ws *WebhookServer) Subscribe(ctx context.Context, eventType, sourceFilter,
 	}
 	webhookURL := fmt.Sprintf("http://host.docker.internal:%s/%s", ws.localPort, webhookPath)
 
-	// Create table if not exists
-	_, err := ws.dbConn.Exec(ctx, `
-		CREATE EXTENSION IF NOT EXISTS pgcrypto;
-		CREATE TABLE IF NOT EXISTS subscriptions (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			source text NOT NULL,
-			event_type text NOT NULL,
-			target_url text NOT NULL,
-			http_method text NOT NULL DEFAULT 'POST' CHECK (http_method IN ('POST', 'PUT', 'PATCH')),
-			headers jsonb NOT NULL DEFAULT '{}'::jsonb,
-			receiver_instance text,
-			enabled boolean NOT NULL DEFAULT true,
-			created_at timestamptz NOT NULL DEFAULT now()
-		);
-		CREATE INDEX IF NOT EXISTS idx_subscriptions_lookup 
-			ON subscriptions (source, event_type) WHERE enabled = true;
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+	reqBody := map[string]interface{}{
+		"source":          sourceFilter,
+		"event_type":      eventType,
+		"destination_url": webhookURL,
+		"http_method":     "POST",
+		"headers": map[string]string{
+			"X-Receiver-Instance": ws.instanceID,
+		},
 	}
 
-	// Add receiver_instance column if it doesn't exist (migration)
-	_, err = ws.dbConn.Exec(ctx, `
-		ALTER TABLE subscriptions 
-		ADD COLUMN IF NOT EXISTS receiver_instance text
-	`)
+	jsonBody, _ := json.Marshal(reqBody)
+	resp, err := ws.httpClient.Post(
+		fmt.Sprintf("%s/api/v1/subscriptions", ws.subsBaseURL),
+		"application/json",
+		bytes.NewBuffer(jsonBody),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to migrate table: %w", err)
+		return fmt.Errorf("failed to call subscriptions api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected status from subscriptions api: %d", resp.StatusCode)
 	}
 
-	// Delete only subscriptions for this receiver instance
-	_, err = ws.dbConn.Exec(ctx, 
-		"DELETE FROM subscriptions WHERE source = $1 AND event_type = $2 AND receiver_instance = $3",
-		sourceFilter, eventType, ws.instanceID)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing subscription: %w", err)
-	}
-
-	// Insert new subscription
-	var subID string
-	err = ws.dbConn.QueryRow(ctx,
-		`INSERT INTO subscriptions (source, event_type, target_url, http_method, headers, receiver_instance, enabled)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id`,
-		sourceFilter, eventType, webhookURL, "POST", "{}", ws.instanceID, true).Scan(&subID)
-	if err != nil {
-		return fmt.Errorf("failed to insert subscription: %w", err)
-	}
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
 
 	fmt.Printf("✓ Subscribed to '%s' (source: %s)\n", eventType, sourceFilter)
 	fmt.Printf("  Webhook URL: %s\n", webhookURL)
-	fmt.Printf("  Subscription ID: %s\n", subID)
+	fmt.Printf("  Subscription ID: %v\n", result["subscription_id"])
 	fmt.Printf("  Instance: %s\n\n", ws.instanceID)
 	return nil
 }
 
 func (ws *WebhookServer) ListSubscriptions(ctx context.Context) error {
-	rows, err := ws.dbConn.Query(ctx,
-		"SELECT event_type, source, target_url, receiver_instance, created_at FROM subscriptions WHERE enabled = true AND receiver_instance = $1 ORDER BY created_at DESC",
-		ws.instanceID)
+	resp, err := ws.httpClient.Get(fmt.Sprintf("%s/api/v1/subscriptions", ws.subsBaseURL))
 	if err != nil {
-		return fmt.Errorf("failed to query subscriptions: %w", err)
+		return fmt.Errorf("failed to call subscriptions api: %w", err)
 	}
-	defer rows.Close()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status from subscriptions api: %d", resp.StatusCode)
+	}
+
+	var subs []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&subs); err != nil {
+		return fmt.Errorf("failed to decode subscriptions: %w", err)
+	}
 
 	fmt.Println("\n════════════════════════════════════════")
-	fmt.Printf("      Subscriptions (Instance: %s)\n", ws.instanceID)
+	fmt.Printf("      All Subscriptions (from API)\n")
 	fmt.Println("════════════════════════════════════════")
 
 	count := 0
-	for rows.Next() {
-		var eventType, source, targetURL, instance string
-		var createdAt time.Time
-		if err := rows.Scan(&eventType, &source, &targetURL, &instance, &createdAt); err != nil {
-			return err
+	for _, sub := range subs {
+		// Filter by instance in headers if we want to show only "ours"
+		headers, ok := sub["headers"].(map[string]interface{})
+		if ok && headers["X-Receiver-Instance"] != ws.instanceID {
+			continue
 		}
-		fmt.Printf("Event Type: %s\n", eventType)
-		fmt.Printf("Source: %s\n", source)
-		fmt.Printf("Target URL: %s\n", targetURL)
-		fmt.Printf("Created: %s\n\n", createdAt.Format(time.RFC3339))
+
+		fmt.Printf("ID: %v\n", sub["subscription_id"])
+		fmt.Printf("Event Type: %v\n", sub["event_type"])
+		fmt.Printf("Source: %v\n", sub["source"])
+		fmt.Printf("Target URL: %v\n", sub["destination_url"])
+		fmt.Printf("Created: %v\n\n", sub["created_at"])
 		count++
 	}
 
 	if count == 0 {
-		fmt.Println("No subscriptions found for this instance\n")
+		fmt.Println("No subscriptions found for this instance")
 	}
 
-	return rows.Err()
+	return nil
 }
 
 func (ws *WebhookServer) Stop(ctx context.Context) error {
@@ -225,31 +210,11 @@ func (ws *WebhookServer) Stop(ctx context.Context) error {
 
 func main() {
 	port := flag.String("port", "8888", "Port to listen on for webhooks")
-	dbHost := flag.String("db-host", "localhost", "PostgreSQL host")
-	dbPort := flag.Int("db-port", 5432, "PostgreSQL port")
-	dbUser := flag.String("db-user", "green", "PostgreSQL user")
-	dbPassword := flag.String("db-password", "green-password", "PostgreSQL password")
-	dbName := flag.String("db-name", "green", "PostgreSQL database name")
+	subsAPI := flag.String("subs-api", "http://localhost:8082", "Subscriptions Service API URL")
 	flag.Parse()
 
-	ctx := context.Background()
+	server := NewWebhookServer(*subsAPI, *port)
 
-	// Connect to database
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
-		*dbUser, *dbPassword, *dbHost, *dbPort, *dbName)
-	
-	conn, err := pgx.Connect(ctx, connStr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close(ctx)
-
-	fmt.Printf("Connected to database at %s:%d\n\n", *dbHost, *dbPort)
-
-	server := NewWebhookServer(conn, *port)
-
-	// Start webhook server
 	addr := fmt.Sprintf(":%s", *port)
 	if err := server.Start(addr); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start server: %v\n", err)
@@ -262,6 +227,7 @@ func main() {
 	fmt.Println("   Event Receiver (Subscriber) CLI")
 	fmt.Println("════════════════════════════════════════")
 	fmt.Printf("Listening on: %s\n", localURL)
+	fmt.Printf("Subscriptions API: %s\n", *subsAPI)
 	fmt.Printf("Instance ID: %s\n", server.instanceID)
 	fmt.Println("\nCommands:")
 	fmt.Println("  subscribe <event_type> <event_source> [webhook_path]")
@@ -302,8 +268,6 @@ func main() {
 		case "subscribe":
 			if len(parts) < 3 {
 				fmt.Println("Usage: subscribe <event_type> <event_source> [webhook_path]")
-				fmt.Println("Example: subscribe order.created test-system")
-				fmt.Println("Example: subscribe order.created test-system custom/path")
 				continue
 			}
 
@@ -314,14 +278,13 @@ func main() {
 				webhookPath = strings.TrimSpace(parts[3])
 			}
 
-			err := server.Subscribe(ctx, eventType, sourceFilter, webhookPath)
+			err := server.Subscribe(context.Background(), eventType, sourceFilter, webhookPath)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
-				continue
 			}
 
 		case "list":
-			err := server.ListSubscriptions(ctx)
+			err := server.ListSubscriptions(context.Background())
 			if err != nil {
 				fmt.Printf("Error: %v\n\n", err)
 			}
@@ -329,10 +292,5 @@ func main() {
 		default:
 			fmt.Println("Unknown command. Use 'subscribe', 'list', or 'exit'")
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
-		os.Exit(1)
 	}
 }
