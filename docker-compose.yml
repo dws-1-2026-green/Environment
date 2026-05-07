@@ -39,7 +39,7 @@ services:
     environment:
       STORE_BACKEND: cassandra
       CASSANDRA_HOSTS: cassandra
-      HTTP_ADDR: 8082
+      HTTP_ADDR: ":8082"
     ports:
       - "8082:8082"
     networks:
