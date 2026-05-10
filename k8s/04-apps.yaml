@@ -1,0 +1,209 @@
+# ─── event-receiver ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-receiver
+  namespace: webhooks
+spec:
+  selector:
+    app: event-receiver
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-receiver
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-receiver
+  template:
+    metadata:
+      labels:
+        app: event-receiver
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: event-receiver
+          image: ghcr.io/dws-1-2026-green/eventreceiver:master
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KAFKA_BROKERS
+              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+---
+# ─── delivery-service ─────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  selector:
+    app: delivery-service
+  ports:
+    - name: metrics
+      port: 9095
+      targetPort: 9095
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivery-service
+  template:
+    metadata:
+      labels:
+        app: delivery-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: delivery-service
+          image: ghcr.io/dws-1-2026-green/delivery-service:develop
+          ports:
+            - containerPort: 9095
+          env:
+            - name: KAFKA_BROKERS
+              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+            - name: KAFKA_TOPIC
+              value: "deliveries.to_send"
+            - name: METRICS_ADDR
+              value: ":9095"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscriptions-api
+  namespace: webhooks
+spec:
+  selector:
+    app: subscriptions-api
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriptions-api
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriptions-api
+  template:
+    metadata:
+      labels:
+        app: subscriptions-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+    spec:
+      initContainers:
+        - name: wait-for-cassandra
+          image: cassandra:4.1
+          command:
+            - sh
+            - -c
+            - |
+              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+                echo "Waiting for Cassandra..."; sleep 5;
+              done
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: subscriptions-api
+          image: ghcr.io/dws-1-2026-green/subscriptions-api:main
+          ports:
+            - containerPort: 8082
+          env:
+            - name: BUILD_TARGET
+              value: "api"
+            - name: STORE_BACKEND
+              value: "cassandra"
+            - name: CASSANDRA_HOSTS
+              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
+            - name: CASSANDRA_CONSISTENCY
+              value: "LOCAL_ONE"
+            - name: HTTP_ADDR
+              value: ":8082"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  selector:
+    app: subscriptions-worker
+  ports:
+    - name: metrics
+      port: 9091
+      targetPort: 9091
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriptions-worker
+  template:
+    metadata:
+      labels:
+        app: subscriptions-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+    spec:
+      initContainers:
+        - name: wait-for-cassandra
+          image: cassandra:4.1
+          command:
+            - sh
+            - -c
+            - |
+              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+                echo "Waiting for Cassandra..."; sleep 5;
+              done
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: subscriptions-worker
+          image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
+          ports:
+            - containerPort: 9091
+          env:
+            - name: BUILD_TARGET
+              value: "worker"
+            - name: KAFKA_BROKERS
+              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+            - name: STORE_BACKEND
+              value: "cassandra"
+            - name: CASSANDRA_HOSTS
+              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
+            - name: CASSANDRA_CONSISTENCY
+              value: "LOCAL_ONE"
+            - name: METRICS_ADDR
+              value: ":9091"

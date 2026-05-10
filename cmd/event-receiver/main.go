@@ -121,7 +121,7 @@ func (ws *WebhookServer) Subscribe(ctx context.Context, eventType, sourceFilter,
 	if webhookPath == "" {
 		webhookPath = eventType
 	}
-	webhookURL := fmt.Sprintf("http://host.docker.internal:%s/%s", ws.localPort, webhookPath)
+	webhookURL := fmt.Sprintf("http://host-webhook-listener.webhooks.svc.cluster.local:%s/%s", ws.localPort, webhookPath)
 
 	reqBody := map[string]interface{}{
 		"source":          sourceFilter,
