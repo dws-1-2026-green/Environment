@@ -1,6 +1,6 @@
 -- Keyspace for webhook subscriptions
 CREATE KEYSPACE IF NOT EXISTS webhooks
-WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3}
+WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}
  AND durable_writes = true;
 
 -- Table for subscriptions

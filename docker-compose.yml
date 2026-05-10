@@ -37,8 +37,10 @@ services:
     restart: unless-stopped
 
     environment:
+      BUILD_TARGET: api
       STORE_BACKEND: cassandra
       CASSANDRA_HOSTS: cassandra
+      CASSANDRA_CONSISTENCY: LOCAL_ONE
       HTTP_ADDR: ":8082"
     ports:
       - "8082:8082"
@@ -56,9 +58,11 @@ services:
     restart: unless-stopped
 
     environment:
+      BUILD_TARGET: worker
       KAFKA_BROKERS: kafka:9094
       STORE_BACKEND: cassandra
       CASSANDRA_HOSTS: cassandra
+      CASSANDRA_CONSISTENCY: LOCAL_ONE
       METRICS_ADDR: ":9091"
     ports:
       - "9091:9091"
@@ -132,20 +136,34 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
     healthcheck:
-      test: [ "CMD", "cqlsh", "-e", "describe keyspaces" ]
+      test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
       interval: 10s
       timeout: 10s
       retries: 10
       start_period: 30s
 
-  cassandra-init:
+  cassandra-up:
     image: cassandra:4.1
     depends_on:
       cassandra:
         condition: service_healthy
     volumes:
       - ./cassandra/init.up.cql:/schema.cql:ro
-    command: [ "cqlsh", "cassandra", "-f", "/schema.cql" ]
+    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
+    restart: "no"
+    networks:
+      - cassandra-net
+
+  cassandra-down:
+    image: cassandra:4.1
+    profiles:
+      - down 
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.down.cql:/schema.cql:ro
+    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
     restart: "no"
     networks:
       - cassandra-net
