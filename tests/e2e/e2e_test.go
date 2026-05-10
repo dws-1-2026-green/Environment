@@ -86,7 +86,7 @@ func TestEndToEndWebhookDelivery(t *testing.T) {
 	select {
 	case receivedData := <-receivedWebhookSignal:
 		t.Logf("Mock server received payload: %s", string(receivedData))
-		
+
 		var receivedEventData map[string]interface{}
 		err := json.Unmarshal(receivedData, &receivedEventData)
 		assert.NoError(t, err)
