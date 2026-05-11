@@ -1,0 +1,377 @@
+# ─── Grafana provisioning ConfigMaps ──────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-config
+  namespace: webhooks
+data:
+  dashboards.yml: |
+    apiVersion: 1
+
+    providers:
+      - name: default
+        orgId: 1
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /etc/grafana/provisioning/dashboards
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-webhook-engine
+  namespace: webhooks
+data:
+  webhook-engine.json: |
+    {
+      "title": "Webhook Delivery Engine",
+      "uid": "webhook-engine",
+      "version": 1,
+      "schemaVersion": 38,
+      "refresh": "15s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Events Received (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_receiver_events_received_total[1m])) by (source, event_type) * 60",
+              "legendFormat": "{{source}} / {{event_type}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Events Published to Kafka (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_receiver_events_published_total{status='success'}[1m])) * 60",
+              "legendFormat": "success",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "sum(rate(event_receiver_events_published_total{status='error'}[1m])) * 60",
+              "legendFormat": "error",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "HTTP Request Duration (p99, ms)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
+              "legendFormat": "p99 {{path}}",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
+              "legendFormat": "p50 {{path}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "HTTP Requests Total (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
+              "legendFormat": "{{method}} {{path}} {{status_code}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Subscriptions: Events Processed (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(subscriptions_events_processed_total[1m])) by (source, event_type) * 60",
+              "legendFormat": "{{source}} / {{event_type}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "Subscriptions: Deliveries Dispatched (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 7, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(subscriptions_deliveries_dispatched_total[1m])) by (source, event_type) * 60",
+              "legendFormat": "{{source}} / {{event_type}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Subscriptions: No Matches (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 14, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(subscriptions_no_matches_total[1m])) by (source, event_type) * 60",
+              "legendFormat": "{{source}} / {{event_type}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "Subscriptions: Routing Errors (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 14, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "rate(subscriptions_routing_errors_total[1m]) * 60",
+              "legendFormat": "errors",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Subscriptions: DB Query Duration (p99, ms)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 14, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+              "legendFormat": "p99 {{backend}}",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+              "legendFormat": "p50 {{backend}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "title": "Delivery: Messages Received (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 21, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "rate(delivery_messages_received_total[1m]) * 60",
+              "legendFormat": "received",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "title": "Delivery: Attempt Outcomes (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 21, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(delivery_attempts_total[1m])) by (status) * 60",
+              "legendFormat": "{{status}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "title": "Delivery: Final Status (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 21, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(delivery_final_status_total[1m])) by (status) * 60",
+              "legendFormat": "{{status}}",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "title": "Delivery: Attempt Duration (p99, ms)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 28, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+              "legendFormat": "p99",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+              "legendFormat": "p50",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "title": "Delivery: Retries (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 28, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "rate(delivery_retries_total[1m]) * 60",
+              "legendFormat": "retries",
+              "datasource": "Prometheus"
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "title": "Pipeline: End-to-End Event Flow (rate/min)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 28, "w": 8, "h": 7 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",
+              "legendFormat": "received",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "sum(rate(subscriptions_events_processed_total[1m])) * 60",
+              "legendFormat": "routed",
+              "datasource": "Prometheus"
+            },
+            {
+              "expr": "sum(rate(delivery_final_status_total{status='success'}[1m])) * 60",
+              "legendFormat": "delivered",
+              "datasource": "Prometheus"
+            }
+          ]
+        }
+      ]
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: webhooks
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-0.prometheus.webhooks.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.webhooks.svc.cluster.local:3100
+        editable: false
+---
+# ─── Grafana Secret ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-credentials
+  namespace: webhooks
+type: Opaque
+stringData:
+  admin-user: admin
+  admin-password: admin
+---
+# ─── Grafana Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: webhooks
+spec:
+  clusterIP: None
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+# ─── Grafana StatefulSet ──────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: webhooks
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472
+      containers:
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-password
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml
+              subPath: dashboards.yml
+            - name: dashboard-webhook-engine
+              mountPath: /etc/grafana/provisioning/dashboards/webhook-engine.json
+              subPath: webhook-engine.json
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources/prometheus.yml
+              subPath: prometheus.yml
+      volumes:
+        - name: dashboards-config
+          configMap:
+            name: grafana-dashboards-config
+        - name: dashboard-webhook-engine
+          configMap:
+            name: grafana-dashboard-webhook-engine
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+  volumeClaimTemplates:
+    - metadata:
+        name: grafana-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

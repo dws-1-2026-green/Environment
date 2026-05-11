@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  selector:
+    app: subscriptions-worker
+  ports:
+    - name: metrics
+      port: 9091
+      targetPort: 9091
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriptions-worker
+  template:
+    metadata:
+      labels:
+        app: subscriptions-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-credentials
+      initContainers:
+        - name: wait-for-cassandra
+          image: cassandra:4.1
+          command:
+            - sh
+            - -c
+            - |
+              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+                echo "Waiting for Cassandra..."; sleep 5;
+              done
+      containers:
+        - name: subscriptions-worker
+          image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
+          ports:
+            - containerPort: 9091
+          env:
+            - name: BUILD_TARGET
+              value: "worker"
+            - name: KAFKA_BROKERS
+              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+            - name: STORE_BACKEND
+              value: "cassandra"
+            - name: CASSANDRA_HOSTS
+              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
+            - name: CASSANDRA_CONSISTENCY
+              value: "LOCAL_ONE"
+            - name: METRICS_ADDR
+              value: ":9091"

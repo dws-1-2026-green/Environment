@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  selector:
+    app: delivery-service
+  ports:
+    - name: metrics
+      port: 9095
+      targetPort: 9095
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivery-service
+  template:
+    metadata:
+      labels:
+        app: delivery-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+        - name: delivery-service
+          image: ghcr.io/dws-1-2026-green/delivery-service:develop
+          ports:
+            - containerPort: 9095
+          env:
+            - name: KAFKA_BROKERS
+              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+            - name: KAFKA_TOPIC
+              value: "deliveries.to_send"
+            - name: METRICS_ADDR
+              value: ":9095"

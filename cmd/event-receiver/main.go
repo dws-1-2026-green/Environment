@@ -210,7 +210,7 @@ func (ws *WebhookServer) Stop(ctx context.Context) error {
 
 func main() {
 	port := flag.String("port", "8888", "Port to listen on for webhooks")
-	subsAPI := flag.String("subs-api", "http://localhost:8082", "Subscriptions Service API URL")
+	subsAPI := flag.String("subs-api", "http://subscriptions.localhost", "Subscriptions Service API URL")
 	flag.Parse()
 
 	server := NewWebhookServer(*subsAPI, *port)
