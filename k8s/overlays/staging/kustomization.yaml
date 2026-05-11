@@ -13,5 +13,6 @@ secretGenerator:
     literals:
       - admin-user=admin
       - admin-password=tVbfSvowVeJXPqW3mvYf
+    behavior: replace
     options:
       disableNameSuffixHash: true
