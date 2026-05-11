@@ -104,7 +104,7 @@ services:
         condition: service_healthy
 
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:3.8.0
     container_name: kafka
     restart: unless-stopped
     environment:
@@ -153,7 +153,7 @@ services:
       - kafka-net
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.1
     container_name: kafka-ui
     restart: unless-stopped
     depends_on:
@@ -215,7 +215,7 @@ services:
       - cassandra-net
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.52.0
     container_name: prometheus
     restart: unless-stopped
     volumes:
@@ -236,7 +236,7 @@ services:
       - monitoring-net
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.0.0
     container_name: grafana
     restart: unless-stopped
     environment:
