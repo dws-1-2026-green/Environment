@@ -109,6 +109,25 @@ services:
       - kafka-data:/var/lib/kafka/data
     networks:
       - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-topics-create:
+    image: apache/kafka:latest
+    container_name: kafka-topics-create
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 1 --replication-factor 1 &&
+               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 1 --replication-factor 1"
+    restart: "no"
+    networks:
+      - kafka-net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
