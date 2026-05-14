@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   event-receiver:
@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     environment:
       KAFKA_BROKERS: kafka:9094
+      LOG_LEVEL: debug
     ports:
       - "8080:8080"
     depends_on:
@@ -23,6 +24,7 @@ services:
       KAFKA_BROKERS: kafka:9094
       KAFKA_TOPIC: deliveries.to_send
       METRICS_ADDR: ":9095"
+      LOG_LEVEL: debug
     ports:
       - "9095:9095"
     depends_on:
@@ -31,25 +33,52 @@ services:
       - kafka-net
       - monitoring-net
 
-  subscriptions:
-    image: ghcr.io/dws-1-2026-green/subscriptions:main
-    container_name: subscriptions
+  subscriptions-api:
+    image: ghcr.io/dws-1-2026-green/subscriptions-api:main
+    container_name: subscriptions-api
     restart: unless-stopped
+
     environment:
+      BUILD_TARGET: api
+      STORE_BACKEND: cassandra
+      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_CONSISTENCY: LOCAL_ONE
+      HTTP_ADDR: ":8082"
+      LOG_LEVEL: debug
+    ports:
+      - "8082:8082"
+    networks:
+      - kafka-net
+      - cassandra-net
+      - monitoring-net
+    depends_on:
+      cassandra:
+        condition: service_healthy
+
+  subscriptions-worker:
+    image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
+    container_name: subscriptions-worker
+    restart: unless-stopped
+
+    environment:
+      BUILD_TARGET: worker
       KAFKA_BROKERS: kafka:9094
-      STORE_BACKEND: postgres
-      DATABASE_URL: postgres://green:green-password@postgres:5432/green?sslmode=disable
-      SUBSCRIPTIONS_API_BASE_URL: http://external-api:8080
+      STORE_BACKEND: cassandra
+      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_CONSISTENCY: LOCAL_ONE
       METRICS_ADDR: ":9091"
+      LOG_LEVEL: debug
     ports:
       - "9091:9091"
     networks:
       - kafka-net
-      - postgres-net
+      - cassandra-net
       - monitoring-net
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_started
+      cassandra:
+        condition: service_healthy
 
   kafka:
     image: apache/kafka:latest
@@ -80,6 +109,25 @@ services:
       - kafka-data:/var/lib/kafka/data
     networks:
       - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-topics-create:
+    image: apache/kafka:latest
+    container_name: kafka-topics-create
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 1 --replication-factor 1 &&
+               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 1 --replication-factor 1"
+    restart: "no"
+    networks:
+      - kafka-net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -95,19 +143,53 @@ services:
     networks:
       - kafka-net
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    environment:
-      POSTGRES_USER: green
-      POSTGRES_PASSWORD: green-password
-      POSTGRES_DB: green
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: "WebhooksCluster"
+      CASSANDRA_DC: "dc1"
+      CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
+      MAX_HEAP_SIZE: "512M"
+      HEAP_NEWSIZE: "100M"
     networks:
-      - postgres-net
+      - cassandra-net
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  cassandra-up:
+    image: cassandra:4.1
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.up.cql:/schema.cql:ro
+    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
+    restart: "no"
+    networks:
+      - cassandra-net
+
+  cassandra-down:
+    image: cassandra:4.1
+    profiles:
+      - down 
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.down.cql:/schema.cql:ro
+    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
+    restart: "no"
+    networks:
+      - cassandra-net
 
   prometheus:
     image: prom/prometheus:latest
@@ -117,15 +199,15 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
     ports:
       - "9090:9090"
     depends_on:
       - event-receiver
-      - subscriptions
+      - subscriptions-worker
       - delivery-service
     networks:
       - monitoring-net
@@ -151,7 +233,7 @@ services:
 networks:
   kafka-net:
     driver: bridge
-  postgres-net:
+  cassandra-net:
     driver: bridge
   monitoring-net:
     driver: bridge
@@ -161,3 +243,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  cassandra_data:

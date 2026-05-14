@@ -5,8 +5,9 @@ Two interactive CLI applications for manual testing of the webhook delivery syst
 ## Prerequisites
 
 - Go 1.21 or higher
-- Docker Compose running (Event Receiver service, Kafka, PostgreSQL)
+- Docker Compose running (Event Receiver service, Kafka, Subscriptions API, Cassandra/PostgreSQL)
 - Event Receiver service on `http://localhost:8080`
+- Subscriptions API on `http://localhost:8082`
 
 ## Build
 
@@ -165,11 +166,7 @@ The `subscribe` command accepts an optional third parameter to customize the web
 
 **Event Receiver:**
 - `-port` Port to listen on (default: 8888)
-- `-db-host` PostgreSQL host (default: localhost)
-- `-db-port` PostgreSQL port (default: 5432)
-- `-db-user` PostgreSQL user (default: green)
-- `-db-password` PostgreSQL password (default: green-password)
-- `-db-name` Database name (default: green)
+- `-subs-api` Subscriptions Service API URL (default: http://localhost:8082)
 
 ## How It Works
 
