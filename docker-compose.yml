@@ -16,22 +16,45 @@ services:
       - kafka-net
       - monitoring-net
 
+  delivery-postgres:
+    image: postgres:16-alpine
+    container_name: delivery-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ds
+      POSTGRES_PASSWORD: ds-password
+      POSTGRES_DB: delivery
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d delivery"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - delivery-postgres-net
+
   delivery-service:
-    image: ghcr.io/dws-1-2026-green/delivery-service:develop
+    image: ghcr.io/dws-1-2026-green/delivery-service:main
     container_name: delivery-service
     restart: unless-stopped
     environment:
       KAFKA_BROKERS: kafka:9094
       KAFKA_TOPIC: deliveries.to_send
       METRICS_ADDR: ":9095"
+      DATABASE_URL: postgres://ds:ds-password@delivery-postgres:5432/delivery
       LOG_LEVEL: debug
     ports:
       - "9095:9095"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_started
+      delivery-postgres:
+        condition: service_healthy
     networks:
       - kafka-net
       - monitoring-net
+      - delivery-postgres-net
 
   subscriptions-api:
     image: ghcr.io/dws-1-2026-green/subscriptions-api:main
@@ -236,6 +259,8 @@ networks:
   cassandra-net:
     driver: bridge
   monitoring-net:
+    driver: bridge
+  delivery-postgres-net:
     driver: bridge
 
 volumes:
