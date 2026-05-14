@@ -1,6 +1,6 @@
 {
-  "title": "Webhook Delivery Engine",
-  "uid": "webhook-engine",
+  "title": "Overview",
+  "uid": "overview",
   "version": 1,
   "schemaVersion": 38,
   "refresh": "15s",
@@ -8,9 +8,16 @@
   "panels": [
     {
       "id": 1,
+      "title": "event-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
       "title": "Events Received (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_events_received_total[1m])) by (source, event_type) * 60",
@@ -20,10 +27,10 @@
       ]
     },
     {
-      "id": 2,
+      "id": 3,
       "title": "Events Published to Kafka (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 1, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_events_published_total{status='success'}[1m])) * 60",
@@ -38,10 +45,10 @@
       ]
     },
     {
-      "id": 3,
+      "id": 4,
       "title": "HTTP Request Duration (p99, ms)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
@@ -56,10 +63,10 @@
       ]
     },
     {
-      "id": 4,
+      "id": 5,
       "title": "HTTP Requests Total (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
@@ -69,10 +76,17 @@
       ]
     },
     {
-      "id": 5,
-      "title": "Subscriptions: Events Processed (rate/min)",
+      "id": 6,
+      "title": "subscription-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 }
+    },
+    {
+      "id": 7,
+      "title": "Events Processed (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(subscriptions_events_processed_total[1m])) by (source, event_type) * 60",
@@ -82,10 +96,10 @@
       ]
     },
     {
-      "id": 6,
-      "title": "Subscriptions: Deliveries Dispatched (rate/min)",
+      "id": 8,
+      "title": "Deliveries Dispatched (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(subscriptions_deliveries_dispatched_total[1m])) by (source, event_type) * 60",
@@ -95,10 +109,10 @@
       ]
     },
     {
-      "id": 7,
-      "title": "Subscriptions: No Matches (rate/min)",
+      "id": 9,
+      "title": "No Matches (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 14, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(subscriptions_no_matches_total[1m])) by (source, event_type) * 60",
@@ -108,10 +122,10 @@
       ]
     },
     {
-      "id": 8,
-      "title": "Subscriptions: Routing Errors (rate/min)",
+      "id": 10,
+      "title": "Routing Errors (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 14, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 23, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "rate(subscriptions_routing_errors_total[1m]) * 60",
@@ -121,10 +135,10 @@
       ]
     },
     {
-      "id": 9,
-      "title": "Subscriptions: DB Query Duration (p99, ms)",
+      "id": 11,
+      "title": "DB Query Duration (p99, ms)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 14, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 23, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
@@ -139,10 +153,17 @@
       ]
     },
     {
-      "id": 10,
-      "title": "Delivery: Messages Received (rate/min)",
+      "id": 12,
+      "title": "delivery-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 30, "w": 24, "h": 1 }
+    },
+    {
+      "id": 13,
+      "title": "Messages Received (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 21, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 31, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "rate(delivery_messages_received_total[1m]) * 60",
@@ -152,10 +173,10 @@
       ]
     },
     {
-      "id": 11,
-      "title": "Delivery: Attempt Outcomes (rate/min)",
+      "id": 14,
+      "title": "Attempt Outcomes (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 21, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 31, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(delivery_attempts_total[1m])) by (status) * 60",
@@ -165,10 +186,10 @@
       ]
     },
     {
-      "id": 12,
-      "title": "Delivery: Final Status (rate/min)",
+      "id": 15,
+      "title": "Final Status (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 21, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 31, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(delivery_final_status_total[1m])) by (status) * 60",
@@ -178,10 +199,10 @@
       ]
     },
     {
-      "id": 13,
-      "title": "Delivery: Attempt Duration (p99, ms)",
+      "id": 16,
+      "title": "Attempt Duration (p99, ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 28, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 38, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
@@ -196,10 +217,10 @@
       ]
     },
     {
-      "id": 14,
-      "title": "Delivery: Retries (rate/min)",
+      "id": 17,
+      "title": "Retries (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 28, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 38, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "rate(delivery_retries_total[1m]) * 60",
@@ -209,10 +230,10 @@
       ]
     },
     {
-      "id": 15,
+      "id": 18,
       "title": "Pipeline: End-to-End Event Flow (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 28, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 38, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",

@@ -1,0 +1,72 @@
+{
+  "title": "Event Receiver",
+  "uid": "event-receiver",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events Received (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(event_receiver_events_received_total[1m])) by (source, event_type) * 60",
+          "legendFormat": "{{source}} / {{event_type}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Events Published to Kafka (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(event_receiver_events_published_total{status='success'}[1m])) * 60",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(rate(event_receiver_events_published_total{status='error'}[1m])) * 60",
+          "legendFormat": "error",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP Request Duration (p99, ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
+          "legendFormat": "p99 {{path}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
+          "legendFormat": "p50 {{path}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "HTTP Requests Total (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
+          "legendFormat": "{{method}} {{path}} {{status_code}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ]
+}

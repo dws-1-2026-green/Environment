@@ -1,0 +1,103 @@
+{
+  "title": "Delivery Service",
+  "uid": "delivery-service",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Messages Received (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "rate(delivery_messages_received_total[1m]) * 60",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Attempt Outcomes (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(delivery_attempts_total[1m])) by (status) * 60",
+          "legendFormat": "{{status}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Final Status (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(delivery_final_status_total[1m])) by (status) * 60",
+          "legendFormat": "{{status}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Attempt Duration (p99, ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Retries (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "rate(delivery_retries_total[1m]) * 60",
+          "legendFormat": "retries",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Pipeline: End-to-End Event Flow (rate/min)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 7, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(rate(subscriptions_events_processed_total[1m])) * 60",
+          "legendFormat": "routed",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(rate(delivery_final_status_total{status='success'}[1m])) * 60",
+          "legendFormat": "delivered",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ]
+}
