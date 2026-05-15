@@ -8,70 +8,89 @@
   "panels": [
     {
       "id": 1,
-      "title": "Events Processed (rate/min)",
+      "title": "Events Processed (total)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rate(subscriptions_events_processed_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "total",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Deliveries Dispatched (rate/min)",
+      "title": "Deliveries Dispatched (total)",
       "type": "timeseries",
       "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rate(subscriptions_deliveries_dispatched_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
+          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "legendFormat": "total",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 3,
-      "title": "No Matches (rate/min)",
+      "title": "Processing Outcomes (total)",
       "type": "timeseries",
       "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "errors" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
-          "expr": "sum(rate(subscriptions_no_matches_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "success",
           "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Routing Errors (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
-      "targets": [
+        },
         {
-          "expr": "rate(subscriptions_routing_errors_total[1m]) * 60",
+          "expr": "sum(subscriptions_routing_errors_total) or vector(0)",
           "legendFormat": "errors",
           "datasource": "Prometheus"
         }
       ]
     },
     {
-      "id": 5,
-      "title": "DB Query Duration (p99, ms)",
+      "id": 4,
+      "title": "DB Query Duration (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 8 },
       "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
-          "legendFormat": "p99 {{backend}}",
-          "datasource": "Prometheus"
-        },
         {
           "expr": "histogram_quantile(0.50, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
           "legendFormat": "p50 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p90 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p95 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p99 {{backend}}",
           "datasource": "Prometheus"
         }
       ]
