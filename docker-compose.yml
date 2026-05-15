@@ -56,6 +56,21 @@ services:
       - monitoring-net
       - delivery-postgres-net
 
+  delivery-dashboard:
+    image: ghcr.io/dws-1-2026-green/delivery-dashboard:main
+    container_name: delivery-dashboard
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://ds:ds-password@delivery-postgres:5432/delivery
+      ADDR: ":9096"
+    ports:
+      - "9096:9096"
+    depends_on:
+      delivery-postgres:
+        condition: service_healthy
+    networks:
+      - delivery-postgres-net
+
   subscriptions-api:
     image: ghcr.io/dws-1-2026-green/subscriptions-api:main
     container_name: subscriptions-api

@@ -5,68 +5,283 @@
   "schemaVersion": 38,
   "refresh": "15s",
   "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {
+    "refresh_intervals": ["5s", "15s", "30s", "1m", "5m"],
+    "time_options": ["1m", "10m", "1h", "3h", "1d"]
+  },
   "panels": [
     {
       "id": 1,
-      "title": "event-service",
+      "title": "Pipeline Summary",
       "type": "row",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
     },
     {
       "id": 2,
-      "title": "Events Received (rate/min)",
+      "title": "Message Flow (total)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 1, "w": 24, "h": 8 },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_received_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
+          "expr": "sum(event_receiver_events_received_total)",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(event_receiver_events_published_total{status='success'})",
+          "legendFormat": "published to kafka",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "processed (subscriptions)",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "legendFormat": "dispatched to delivery",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "delivery_messages_received_total",
+          "legendFormat": "received (delivery)",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(delivery_final_status_total{status='success'})",
+          "legendFormat": "delivered",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "legendFormat": "exhausted",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Events Published to Kafka (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 1, "w": 8, "h": 7 },
+      "title": "Received",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 9, "w": 6, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_published_total{status='success'}[1m])) * 60",
-          "legendFormat": "success",
-          "datasource": "Prometheus"
-        },
-        {
-          "expr": "sum(rate(event_receiver_events_published_total{status='error'}[1m])) * 60",
-          "legendFormat": "error",
+          "expr": "sum(event_receiver_events_received_total)",
+          "legendFormat": "received",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 4,
-      "title": "HTTP Request Duration (p99, ms)",
-      "type": "timeseries",
-      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 7 },
+      "title": "→ routing.requests",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 9, "w": 6, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
-          "legendFormat": "p99 {{path}}",
-          "datasource": "Prometheus"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
-          "legendFormat": "p50 {{path}}",
+          "expr": "sum(event_receiver_events_published_total{status='success'})",
+          "legendFormat": "published",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 5,
+      "title": "Processed",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 9, "w": 6, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "processed",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "→ deliveries.to_send",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 9, "w": 6, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "legendFormat": "dispatched",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Received (Delivery)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "delivery_messages_received_total",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Successfully Delivered",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(delivery_final_status_total{status='success'})",
+          "legendFormat": "delivered",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Delivery Errors",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "legendFormat": "errors",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "event-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 }
+    },
+    {
+      "id": 11,
+      "title": "Events Received (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(event_receiver_events_received_total)",
+          "legendFormat": "total",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Events Published to Kafka (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 24, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "error" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(event_receiver_events_published_total{status='success'})",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(event_receiver_events_published_total{status='error'}) or vector(0)",
+          "legendFormat": "error",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 13,
       "title": "HTTP Requests Total (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 24, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
@@ -76,178 +291,260 @@
       ]
     },
     {
-      "id": 6,
-      "title": "subscription-service",
-      "type": "row",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 }
-    },
-    {
-      "id": 7,
-      "title": "Events Processed (rate/min)",
+      "id": 14,
+      "title": "Latency: POST /sources/{source_name}/events (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 31, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "sum(rate(subscriptions_events_processed_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Deliveries Dispatched (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "sum(rate(subscriptions_deliveries_dispatched_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "No Matches (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "sum(rate(subscriptions_no_matches_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "title": "Routing Errors (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 23, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "rate(subscriptions_routing_errors_total[1m]) * 60",
-          "legendFormat": "errors",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "title": "DB Query Duration (p99, ms)",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 23, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
-          "legendFormat": "p99 {{backend}}",
+          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
           "datasource": "Prometheus"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
-          "legendFormat": "p50 {{backend}}",
+          "expr": "histogram_quantile(0.90, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
           "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 12,
-      "title": "delivery-service",
-      "type": "row",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 30, "w": 24, "h": 1 }
-    },
-    {
-      "id": 13,
-      "title": "Messages Received (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 31, "w": 8, "h": 7 },
-      "targets": [
+        },
         {
-          "expr": "rate(delivery_messages_received_total[1m]) * 60",
-          "legendFormat": "received",
+          "expr": "histogram_quantile(0.95, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
           "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "title": "Attempt Outcomes (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 31, "w": 8, "h": 7 },
-      "targets": [
+        },
         {
-          "expr": "sum(rate(delivery_attempts_total[1m])) by (status) * 60",
-          "legendFormat": "{{status}}",
+          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 15,
-      "title": "Final Status (rate/min)",
+      "title": "Latency: GET /health (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 31, "w": 8, "h": 7 },
+      "gridPos": { "x": 12, "y": 31, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "sum(rate(delivery_final_status_total[1m])) by (status) * 60",
-          "legendFormat": "{{status}}",
+          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 16,
-      "title": "Attempt Duration (p99, ms)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 38, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
-          "legendFormat": "p99",
-          "datasource": "Prometheus"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
-          "legendFormat": "p50",
-          "datasource": "Prometheus"
-        }
-      ]
+      "title": "subscription-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 39, "w": 24, "h": 1 }
     },
     {
       "id": 17,
-      "title": "Retries (rate/min)",
+      "title": "Events Processed (total)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 38, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 40, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "rate(delivery_retries_total[1m]) * 60",
-          "legendFormat": "retries",
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "total",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 18,
-      "title": "Pipeline: End-to-End Event Flow (rate/min)",
+      "title": "Deliveries Dispatched (total)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 38, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 40, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",
+          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "legendFormat": "total",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Processing Outcomes (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 40, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "errors" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(subscriptions_events_processed_total)",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(subscriptions_routing_errors_total) or vector(0)",
+          "legendFormat": "errors",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "DB Query Duration (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 47, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p50 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p90 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p95 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
+          "legendFormat": "p99 {{backend}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "delivery-service",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 55, "w": 24, "h": 1 }
+    },
+    {
+      "id": 22,
+      "title": "Messages Received (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 56, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "delivery_messages_received_total",
           "legendFormat": "received",
           "datasource": "Prometheus"
-        },
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Retries (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 56, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "retries" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
         {
-          "expr": "sum(rate(subscriptions_events_processed_total[1m])) * 60",
-          "legendFormat": "routed",
+          "expr": "delivery_retries_total",
+          "legendFormat": "retries",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Final Delivery Outcomes (total)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 56, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "exhausted" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(delivery_final_status_total{status='success'})",
+          "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(rate(delivery_final_status_total{status='success'}[1m])) * 60",
-          "legendFormat": "delivered",
+          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "legendFormat": "exhausted",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "Attempt Duration (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 63, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
           "datasource": "Prometheus"
         }
       ]

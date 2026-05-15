@@ -5,15 +5,19 @@
   "schemaVersion": 38,
   "refresh": "15s",
   "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {
+    "refresh_intervals": ["5s", "15s", "30s", "1m", "5m"],
+    "time_options": ["1m", "10m", "1h", "3h", "1d"]
+  },
   "panels": [
     {
       "id": 1,
-      "title": "Messages Received (rate/min)",
+      "title": "Messages Received (total)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "rate(delivery_messages_received_total[1m]) * 60",
+          "expr": "delivery_messages_received_total",
           "legendFormat": "received",
           "datasource": "Prometheus"
         }
@@ -21,80 +25,135 @@
     },
     {
       "id": 2,
-      "title": "Attempt Outcomes (rate/min)",
+      "title": "Attempt Outcomes (total)",
       "type": "timeseries",
       "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "failure" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
-          "expr": "sum(rate(delivery_attempts_total[1m])) by (status) * 60",
-          "legendFormat": "{{status}}",
+          "expr": "sum(delivery_attempts_total{status='success'})",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(delivery_attempts_total{status='failure'}) or vector(0)",
+          "legendFormat": "failure",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Final Status (rate/min)",
+      "title": "Retries (total)",
       "type": "timeseries",
       "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "retries" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
-          "expr": "sum(rate(delivery_final_status_total[1m])) by (status) * 60",
-          "legendFormat": "{{status}}",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Attempt Duration (p99, ms)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
-          "legendFormat": "p99",
-          "datasource": "Prometheus"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
-          "legendFormat": "p50",
-          "datasource": "Prometheus"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Retries (rate/min)",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 7, "w": 8, "h": 7 },
-      "targets": [
-        {
-          "expr": "rate(delivery_retries_total[1m]) * 60",
+          "expr": "delivery_retries_total",
           "legendFormat": "retries",
           "datasource": "Prometheus"
         }
       ]
     },
     {
-      "id": 6,
-      "title": "Pipeline: End-to-End Event Flow (rate/min)",
+      "id": 4,
+      "title": "Final Delivery Outcomes (total)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "exhausted" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",
-          "legendFormat": "received",
+          "expr": "sum(delivery_final_status_total{status='success'})",
+          "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(rate(subscriptions_events_processed_total[1m])) * 60",
-          "legendFormat": "routed",
+          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "legendFormat": "exhausted",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Pending Deliveries",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "delivery_pending_total",
+          "legendFormat": "pending",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Attempt Duration (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(rate(delivery_final_status_total{status='success'}[1m])) * 60",
-          "legendFormat": "delivered",
+          "expr": "histogram_quantile(0.90, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
           "datasource": "Prometheus"
         }
       ]

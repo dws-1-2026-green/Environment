@@ -8,30 +8,41 @@
   "panels": [
     {
       "id": 1,
-      "title": "Events Received (rate/min)",
+      "title": "Events Received (total)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_received_total[1m])) by (source, event_type) * 60",
-          "legendFormat": "{{source}} / {{event_type}}",
+          "expr": "sum(event_receiver_events_received_total)",
+          "legendFormat": "total",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Events Published to Kafka (rate/min)",
+      "title": "Events Published to Kafka (total)",
       "type": "timeseries",
       "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "error" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_events_published_total{status='success'}[1m])) * 60",
+          "expr": "sum(event_receiver_events_published_total{status='success'})",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(rate(event_receiver_events_published_total{status='error'}[1m])) * 60",
+          "expr": "sum(event_receiver_events_published_total{status='error'}) or vector(0)",
           "legendFormat": "error",
           "datasource": "Prometheus"
         }
@@ -39,31 +50,69 @@
     },
     {
       "id": 3,
-      "title": "HTTP Request Duration (p99, ms)",
+      "title": "HTTP Requests Total (rate/min)",
       "type": "timeseries",
       "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
-          "legendFormat": "p99 {{path}}",
-          "datasource": "Prometheus"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket[1m])) by (le, path)) * 1000",
-          "legendFormat": "p50 {{path}}",
+          "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
+          "legendFormat": "{{method}} {{path}} {{status_code}}",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 4,
-      "title": "HTTP Requests Total (rate/min)",
+      "title": "Latency: POST /sources/{source_name}/events (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 7, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
-          "legendFormat": "{{method}} {{path}} {{status_code}}",
+          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Latency: GET /health (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
+          "legendFormat": "p99",
           "datasource": "Prometheus"
         }
       ]

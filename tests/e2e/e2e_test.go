@@ -132,6 +132,100 @@ func TestEventReceiverPublishesEvent(t *testing.T) {
 	t.Logf("Event %s successfully accepted by Event Receiver", eventID)
 }
 
+func TestEndToEndWebhookDeliveryLoad(t *testing.T) {
+	const (
+		numEvents        = 50
+		numSubscriptions = 3
+	)
+
+	sourceName := "test-source-" + uuid.NewString()[:8]
+	eventType := "order.created"
+
+	// 1. Setup: spin up mock target servers
+	type mockServer struct {
+		server *httptest.Server
+		msgs   chan struct{}
+	}
+
+	mocks := make([]mockServer, numSubscriptions)
+	for i := range mocks {
+		ch := make(chan struct{}, numEvents)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.ReadAll(r.Body)
+			ch <- struct{}{}
+			w.WriteHeader(http.StatusOK)
+		}))
+		mocks[i] = mockServer{server: srv, msgs: ch}
+	}
+	defer func() {
+		for _, m := range mocks {
+			m.server.Close()
+		}
+	}()
+
+	// 2. Setup: one subscription per mock server, all for the same (source, event_type)
+	for i, m := range mocks {
+		u, _ := url.Parse(m.server.URL)
+		targetURL := fmt.Sprintf("http://host.docker.internal:%s", u.Port())
+
+		subReq := map[string]interface{}{
+			"source":          sourceName,
+			"event_type":      eventType,
+			"destination_url": targetURL,
+			"http_method":     "POST",
+			"headers":         map[string]string{"Content-Type": "application/json"},
+		}
+		subBytes, _ := json.Marshal(subReq)
+		resp, err := http.Post(subscriptionsAPIURL+"/api/v1/subscriptions", "application/json", bytes.NewBuffer(subBytes))
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		resp.Body.Close()
+		t.Logf("Subscription %d created → %s", i+1, targetURL)
+	}
+
+	// 3. Action: send numEvents events sequentially
+	for i := range numEvents {
+		payload := map[string]interface{}{
+			"id":   uuid.NewString(),
+			"type": eventType,
+			"data": map[string]interface{}{"order_id": fmt.Sprintf("order-%d", i)},
+		}
+		b, _ := json.Marshal(payload)
+		resp, err := http.Post(
+			fmt.Sprintf("%s/sources/%s/events", eventReceiverURL, sourceName),
+			"application/json", bytes.NewBuffer(b),
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
+	}
+	t.Logf("Sent %d events, expecting %d total webhook deliveries", numEvents, numEvents*numSubscriptions)
+
+	// 4. Verification: each mock server must receive exactly numEvents webhooks.
+	// Servers receive webhooks in parallel, so checking them sequentially is fine —
+	// by the time server 1 is done, the others are already well ahead.
+	timeoutAt := time.Now().Add(120 * time.Second)
+	for i, m := range mocks {
+		received := 0
+		for received < numEvents {
+			remaining := time.Until(timeoutAt)
+			if remaining <= 0 {
+				t.Fatalf("server %d: timeout, received %d/%d webhooks", i+1, received, numEvents)
+			}
+			select {
+			case <-m.msgs:
+				received++
+			case <-time.After(remaining):
+				t.Fatalf("server %d: timeout, received %d/%d webhooks", i+1, received, numEvents)
+			}
+		}
+		t.Logf("Server %d: %d/%d webhooks received ✓", i+1, received, numEvents)
+	}
+
+	t.Logf("Load test passed: %d events × %d subscriptions = %d total webhooks delivered",
+		numEvents, numSubscriptions, numEvents*numSubscriptions)
+}
+
 func TestHealthChecks(t *testing.T) {
 	resp, err := http.Get(eventReceiverURL + "/health")
 	if err != nil {
