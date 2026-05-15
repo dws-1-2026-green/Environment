@@ -53,7 +53,7 @@ spec:
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: "PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://kafka-0.kafka.webhooks.svc.cluster.local:9092,INTERNAL://kafka-0.kafka.webhooks.svc.cluster.local:9094"
+              value: "PLAINTEXT://localhost:9092,INTERNAL://kafka-0.kafka.webhooks.svc.cluster.local:9094"
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
             - name: KAFKA_LOG_DIRS
@@ -71,3 +71,32 @@ spec:
         resources:
           requests:
             storage: 5Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-create
+  namespace: webhooks
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-kafka
+          image: apache/kafka:4.2.0
+          command:
+            - sh
+            - -c
+            - |
+              until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094; do
+                echo "Waiting for Kafka..."; sleep 5;
+              done
+      containers:
+        - name: kafka-topics-create
+          image: apache/kafka:4.2.0
+          command:
+            - sh
+            - -c
+            - |
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic routing.requests --partitions 1 --replication-factor 1 &&
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic deliveries.to_send --partitions 1 --replication-factor 1

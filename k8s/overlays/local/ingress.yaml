@@ -3,9 +3,8 @@ kind: Ingress
 metadata:
   name: webhooks-local
   namespace: webhooks
-  annotations:
-    kubernetes.io/ingress.class: nginx
 spec:
+  ingressClassName: nginx
   rules:
     - host: event-receiver.localhost
       http:

@@ -6,13 +6,13 @@
 ## Сборка
 
 ```bash
-go build -o webhook-tool ./cmd/webhook-tool
+go build -o webhook-tool.exe ./cmd/webhook-tool
 ```
 
 ## Запуск
 
 ```bash
-./webhook-tool [flags]
+./webhook-tool.exe [flags]
 ```
 
 | Флаг | По умолчанию | Описание |
@@ -78,7 +78,7 @@ Created:    2024-01-01T12:00:00Z
 
 ```
 # 1. Запустить утилиту
-./webhook-tool -source my-system
+./webhook-tool.exe -source my-system
 
 # 2. Подписаться на нужный тип событий
 > subscribe order.created my-system

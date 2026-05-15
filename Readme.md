@@ -157,6 +157,15 @@ kubectl get pods -n webhooks --watch
 | Grafana | http://grafana.localhost | admin / admin |
 | Loki | http://loki.localhost | — |
 
+### Прямой доступ к Kafka и Cassandra (только local overlay)
+
+В local overlay для Kafka и Cassandra создаются отдельные `LoadBalancer`-сервисы. Docker Desktop автоматически выдаёт им `localhost` как external IP — можно подключаться напрямую с локальной машины без деплоя своего сервиса в кластер.
+
+| Сервис    | Адрес с хоста    |
+|-----------|------------------|
+| Kafka     | `localhost:9092` |
+| Cassandra | `localhost:9042` |
+
 ### Структура конфигурации
 
 ```
@@ -164,11 +173,11 @@ k8s/
 ├── base/
 │   ├── namespace.yaml
 │   ├── apps/             — event-receiver, subscriptions-api, subscriptions-worker, delivery-service
-│   ├── messaging/        — kafka, kafka-ui
-│   ├── storage/          — cassandra
+│   ├── messaging/        — kafka (+ Job автосоздания топиков), kafka-ui
+│   ├── storage/          — cassandra (+ Job инициализации схемы)
 │   └── observability/    — prometheus, grafana, loki, alloy
 └── overlays/
-    ├── local/            — ingress (.localhost домены) + host-listener для webhook-tool
+    ├── local/            — ingress (.localhost домены), LoadBalancer для Kafka/Cassandra, host-listener для webhook-tool
     └── staging/          — ingress + переопределение секретов Grafana
 ```
 

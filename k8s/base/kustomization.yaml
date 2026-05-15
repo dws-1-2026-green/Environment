@@ -16,7 +16,8 @@ resources:
   - apps/subscriptions-api.yaml
   - apps/subscriptions-worker.yaml
 
-  - observability/prometheus.yaml
-  - observability/grafana.yaml
-  - observability/loki.yaml
-  - observability/alloy.yaml
+  - observability/0-grafana-config.yaml
+  - observability/1-alloy.yaml
+  - observability/2-loki.yaml
+  - observability/3-prometheus.yaml
+  - observability/4-grafana.yaml
