@@ -22,5 +22,9 @@ scrape_configs:
     static_configs:
       - targets: ['delivery-service:9095']
     metrics_path: '/metrics'
+
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
     
  

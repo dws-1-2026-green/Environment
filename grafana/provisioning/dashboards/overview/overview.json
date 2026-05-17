@@ -19,52 +19,159 @@
     },
     {
       "id": 2,
-      "title": "Message Flow (total)",
+      "title": "Event Flow",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 1, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "events received" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "events → routing.requests" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "events processed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "events failed (kafka)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
       "targets": [
         {
           "expr": "sum(event_receiver_events_received_total)",
-          "legendFormat": "received",
+          "legendFormat": "events received",
           "datasource": "Prometheus"
         },
         {
           "expr": "sum(event_receiver_events_published_total{status='success'})",
-          "legendFormat": "published to kafka",
+          "legendFormat": "events → routing.requests",
           "datasource": "Prometheus"
         },
         {
           "expr": "sum(subscriptions_events_processed_total)",
-          "legendFormat": "processed (subscriptions)",
+          "legendFormat": "events processed",
           "datasource": "Prometheus"
         },
         {
+          "expr": "sum(event_receiver_events_published_total{status='error'}) or vector(0)",
+          "legendFormat": "events failed (kafka)",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "title": "Delivery Flow",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "deliveries dispatched" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "deliveries consumed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "deliveries: success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "deliveries: exhausted" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
           "expr": "sum(subscriptions_deliveries_dispatched_total)",
-          "legendFormat": "dispatched to delivery",
+          "legendFormat": "deliveries dispatched",
           "datasource": "Prometheus"
         },
         {
           "expr": "delivery_messages_received_total",
-          "legendFormat": "received (delivery)",
+          "legendFormat": "deliveries consumed",
           "datasource": "Prometheus"
         },
         {
           "expr": "sum(delivery_final_status_total{status='success'})",
-          "legendFormat": "delivered",
+          "legendFormat": "deliveries: success",
           "datasource": "Prometheus"
         },
         {
           "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
-          "legendFormat": "exhausted",
+          "legendFormat": "deliveries: exhausted",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "title": "Pipeline Ratios",
+      "description": "Fan-out: среднее число доставок на одно событие (dispatched / events processed). Success rate: доля доставок, завершившихся успехом.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0, "decimals": 2 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "fan-out (deliveries / event)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "delivery success rate" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(subscriptions_deliveries_dispatched_total) / sum(subscriptions_events_processed_total)",
+          "legendFormat": "fan-out (deliveries / event)",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum(delivery_final_status_total{status='success'}) / sum(delivery_messages_received_total)",
+          "legendFormat": "delivery success rate",
           "datasource": "Prometheus"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Received",
+      "title": "Events Received",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 9, "w": 6, "h": 7 },
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -78,7 +185,7 @@
       },
       "targets": [
         {
-          "expr": "sum(event_receiver_events_received_total)",
+          "expr": "sum(increase(event_receiver_events_received_total[$__range]))",
           "legendFormat": "received",
           "datasource": "Prometheus"
         }
@@ -86,9 +193,10 @@
     },
     {
       "id": 4,
-      "title": "→ routing.requests",
+      "title": "→ Kafka: routing.requests",
+      "description": "EventReceiver → Subscriptions Worker",
       "type": "stat",
-      "gridPos": { "x": 6, "y": 9, "w": 6, "h": 7 },
+      "gridPos": { "x": 6, "y": 16, "w": 6, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -102,7 +210,7 @@
       },
       "targets": [
         {
-          "expr": "sum(event_receiver_events_published_total{status='success'})",
+          "expr": "sum(increase(event_receiver_events_published_total{status='success'}[$__range]))",
           "legendFormat": "published",
           "datasource": "Prometheus"
         }
@@ -110,9 +218,9 @@
     },
     {
       "id": 5,
-      "title": "Processed",
+      "title": "Events Processed",
       "type": "stat",
-      "gridPos": { "x": 12, "y": 9, "w": 6, "h": 7 },
+      "gridPos": { "x": 12, "y": 16, "w": 6, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -126,7 +234,7 @@
       },
       "targets": [
         {
-          "expr": "sum(subscriptions_events_processed_total)",
+          "expr": "sum(increase(subscriptions_events_processed_total[$__range]))",
           "legendFormat": "processed",
           "datasource": "Prometheus"
         }
@@ -134,9 +242,10 @@
     },
     {
       "id": 6,
-      "title": "→ deliveries.to_send",
+      "title": "→ Kafka: deliveries.to_send",
+      "description": "Subscriptions Worker → Delivery Service",
       "type": "stat",
-      "gridPos": { "x": 18, "y": 9, "w": 6, "h": 7 },
+      "gridPos": { "x": 18, "y": 16, "w": 6, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -150,7 +259,7 @@
       },
       "targets": [
         {
-          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "expr": "sum(increase(subscriptions_deliveries_dispatched_total[$__range]))",
           "legendFormat": "dispatched",
           "datasource": "Prometheus"
         }
@@ -158,9 +267,9 @@
     },
     {
       "id": 7,
-      "title": "Received (Delivery)",
+      "title": "Deliveries Received",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 23, "w": 8, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -174,7 +283,7 @@
       },
       "targets": [
         {
-          "expr": "delivery_messages_received_total",
+          "expr": "increase(delivery_messages_received_total[$__range])",
           "legendFormat": "received",
           "datasource": "Prometheus"
         }
@@ -184,7 +293,7 @@
       "id": 8,
       "title": "Successfully Delivered",
       "type": "stat",
-      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 23, "w": 8, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -198,7 +307,7 @@
       },
       "targets": [
         {
-          "expr": "sum(delivery_final_status_total{status='success'})",
+          "expr": "sum(increase(delivery_final_status_total{status='success'}[$__range]))",
           "legendFormat": "delivered",
           "datasource": "Prometheus"
         }
@@ -208,7 +317,7 @@
       "id": 9,
       "title": "Delivery Errors",
       "type": "stat",
-      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 23, "w": 8, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -222,24 +331,75 @@
       },
       "targets": [
         {
-          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "expr": "sum(increase(delivery_final_status_total{status='exhausted'}[$__range])) or vector(0)",
           "legendFormat": "errors",
           "datasource": "Prometheus"
         }
       ]
     },
     {
+      "id": 40,
+      "title": "Kafka Lag: routing.requests",
+      "description": "Lag subscriptions-worker — сколько событий ждут маршрутизации. В норме — 0.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "subscriptions-worker" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumergroup_lag{topic=\"routing.requests\"}) by (consumergroup)",
+          "legendFormat": "{{consumergroup}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "title": "Kafka Lag: deliveries.to_send",
+      "description": "Lag delivery-service — сколько доставок ждут отправки. В норме — 0.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "delivery-group" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumergroup_lag{topic=\"deliveries.to_send\"}) by (consumergroup)",
+          "legendFormat": "{{consumergroup}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+
+    {
       "id": 10,
       "title": "event-service",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 37, "w": 24, "h": 1 }
     },
     {
       "id": 11,
       "title": "Events Received (total)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 38, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(event_receiver_events_received_total)",
@@ -252,7 +412,7 @@
       "id": 12,
       "title": "Events Published to Kafka (total)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 24, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 38, "w": 8, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -281,7 +441,7 @@
       "id": 13,
       "title": "HTTP Requests Total (rate/min)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 24, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 38, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(rate(event_receiver_http_requests_total[1m])) by (method, path, status_code) * 60",
@@ -294,7 +454,7 @@
       "id": 14,
       "title": "Latency: POST /sources/{source_name}/events (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 31, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 45, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events'}[1m])) by (le)) * 1000",
@@ -322,7 +482,7 @@
       "id": 15,
       "title": "Latency: GET /health (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 31, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 45, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(event_receiver_http_request_duration_seconds_bucket{path='/health'}[1m])) by (le)) * 1000",
@@ -347,17 +507,72 @@
       ]
     },
     {
+      "id": 26,
+      "title": "event-service — Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 53, "w": 24, "h": 1 }
+    },
+    {
+      "id": 27,
+      "title": "CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 54, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"event-receiver\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "title": "Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 54, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"event-receiver\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"event-receiver\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 54, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"event-receiver\"}",
+          "legendFormat": "goroutines",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+
+    {
       "id": 16,
       "title": "subscription-service",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 39, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 61, "w": 24, "h": 1 }
     },
     {
       "id": 17,
       "title": "Events Processed (total)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 40, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 62, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(subscriptions_events_processed_total)",
@@ -370,7 +585,7 @@
       "id": 18,
       "title": "Deliveries Dispatched (total)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 40, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 62, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "sum(subscriptions_deliveries_dispatched_total)",
@@ -383,7 +598,7 @@
       "id": 19,
       "title": "Processing Outcomes (total)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 40, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 62, "w": 8, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -418,7 +633,7 @@
       "id": 20,
       "title": "DB Query Duration (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 47, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 69, "w": 24, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(subscriptions_db_query_duration_seconds_bucket[1m])) by (le, backend)) * 1000",
@@ -443,17 +658,92 @@
       ]
     },
     {
+      "id": 30,
+      "title": "subscription-service — Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 77, "w": 24, "h": 1 }
+    },
+    {
+      "id": 31,
+      "title": "CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 78, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"subscriptions-worker\"}[1m]) * 100",
+          "legendFormat": "worker",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"subscriptions-api\"}[1m]) * 100",
+          "legendFormat": "api",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "title": "Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 78, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker heap",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"subscriptions-api\"}",
+          "legendFormat": "api rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"subscriptions-api\"}",
+          "legendFormat": "api heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 78, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_goroutines{job=\"subscriptions-api\"}",
+          "legendFormat": "api",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+
+    {
       "id": 21,
       "title": "delivery-service",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 55, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 85, "w": 24, "h": 1 }
     },
     {
       "id": 22,
       "title": "Messages Received (total)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 56, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 86, "w": 8, "h": 7 },
       "targets": [
         {
           "expr": "delivery_messages_received_total",
@@ -466,7 +756,7 @@
       "id": 23,
       "title": "Retries (total)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 56, "w": 8, "h": 7 },
+      "gridPos": { "x": 8, "y": 86, "w": 8, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -490,7 +780,7 @@
       "id": 24,
       "title": "Final Delivery Outcomes (total)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 56, "w": 8, "h": 7 },
+      "gridPos": { "x": 16, "y": 86, "w": 8, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -525,7 +815,7 @@
       "id": 25,
       "title": "Attempt Duration (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 63, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 93, "w": 24, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
@@ -545,6 +835,60 @@
         {
           "expr": "histogram_quantile(0.99, sum(rate(delivery_attempt_duration_seconds_bucket[1m])) by (le)) * 1000",
           "legendFormat": "p99",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "title": "delivery-service — Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 101, "w": 24, "h": 1 }
+    },
+    {
+      "id": 35,
+      "title": "CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 102, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"delivery-service\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "title": "Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 102, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"delivery-service\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"delivery-service\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 102, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"delivery-service\"}",
+          "legendFormat": "goroutines",
           "datasource": "Prometheus"
         }
       ]

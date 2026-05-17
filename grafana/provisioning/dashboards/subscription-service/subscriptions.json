@@ -95,5 +95,88 @@
         }
       ]
     }
+    ,{
+      "id": 5,
+      "title": "Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 }
+    },
+    {
+      "id": 6,
+      "title": "CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"subscriptions-worker\"}[1m]) * 100",
+          "legendFormat": "worker",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"subscriptions-api\"}[1m]) * 100",
+          "legendFormat": "api",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker heap",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"subscriptions-api\"}",
+          "legendFormat": "api rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"subscriptions-api\"}",
+          "legendFormat": "api heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"subscriptions-worker\"}",
+          "legendFormat": "worker",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_goroutines{job=\"subscriptions-api\"}",
+          "legendFormat": "api",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
   ]
 }
