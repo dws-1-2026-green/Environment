@@ -117,5 +117,68 @@
         }
       ]
     }
+    ,{
+      "id": 6,
+      "title": "Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 }
+    },
+    {
+      "id": 7,
+      "title": "CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"event-receiver\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"event-receiver\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"event-receiver\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"event-receiver\"}",
+          "legendFormat": "goroutines",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
   ]
 }

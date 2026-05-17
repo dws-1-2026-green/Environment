@@ -229,6 +229,20 @@ services:
     networks:
       - cassandra-net
 
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    restart: unless-stopped
+    command: ["--kafka.server=kafka:9094"]
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - kafka-net
+      - monitoring-net
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -247,6 +261,7 @@ services:
       - event-receiver
       - subscriptions-worker
       - delivery-service
+      - kafka-exporter
     networks:
       - monitoring-net
 

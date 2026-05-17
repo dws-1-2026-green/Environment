@@ -134,7 +134,7 @@ func TestEventReceiverPublishesEvent(t *testing.T) {
 
 func TestEndToEndWebhookDeliveryLoad(t *testing.T) {
 	const (
-		numEvents        = 50
+		numEvents        = 243
 		numSubscriptions = 3
 	)
 
@@ -204,7 +204,7 @@ func TestEndToEndWebhookDeliveryLoad(t *testing.T) {
 	// 4. Verification: each mock server must receive exactly numEvents webhooks.
 	// Servers receive webhooks in parallel, so checking them sequentially is fine —
 	// by the time server 1 is done, the others are already well ahead.
-	timeoutAt := time.Now().Add(120 * time.Second)
+	timeoutAt := time.Now().Add(360 * time.Second)
 	for i, m := range mocks {
 		received := 0
 		for received < numEvents {
@@ -224,6 +224,168 @@ func TestEndToEndWebhookDeliveryLoad(t *testing.T) {
 
 	t.Logf("Load test passed: %d events × %d subscriptions = %d total webhooks delivered",
 		numEvents, numSubscriptions, numEvents*numSubscriptions)
+}
+
+// createSubscription is a helper that registers a subscription and returns its ID.
+func createSubscription(t *testing.T, source, eventType, targetURL string) string {
+	t.Helper()
+	subReq := map[string]interface{}{
+		"source":          source,
+		"event_type":      eventType,
+		"destination_url": targetURL,
+		"http_method":     "POST",
+		"headers":         map[string]string{"Content-Type": "application/json"},
+	}
+	b, _ := json.Marshal(subReq)
+	resp, err := http.Post(subscriptionsAPIURL+"/api/v1/subscriptions", "application/json", bytes.NewBuffer(b))
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	defer resp.Body.Close()
+	var body map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&body)
+	return fmt.Sprintf("%v", body["subscription_id"])
+}
+
+// sendEvent is a helper that publishes one event and asserts HTTP 200.
+func sendEvent(t *testing.T, source, eventType string) string {
+	t.Helper()
+	eventID := uuid.NewString()
+	payload := map[string]interface{}{
+		"id":   eventID,
+		"type": eventType,
+		"data": map[string]interface{}{"order_id": uuid.NewString()[:8]},
+	}
+	b, _ := json.Marshal(payload)
+	resp, err := http.Post(
+		fmt.Sprintf("%s/sources/%s/events", eventReceiverURL, source),
+		"application/json", bytes.NewBuffer(b),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp.Body.Close()
+	return eventID
+}
+
+// TestEndToEndWebhookDelivery_4xx_FastFail verifies that a 4xx response causes
+// the delivery to be exhausted immediately with no retries.
+func TestEndToEndWebhookDelivery_4xx_FastFail(t *testing.T) {
+	sourceName := "test-source-" + uuid.NewString()[:8]
+	eventType := "order.created"
+
+	attempts := make(chan struct{}, 5)
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.ReadAll(r.Body)
+		attempts <- struct{}{}
+		w.WriteHeader(http.StatusBadRequest) // 400 → fast-fail, no retries
+	}))
+	defer mockServer.Close()
+
+	u, _ := url.Parse(mockServer.URL)
+	targetURL := fmt.Sprintf("http://host.docker.internal:%s", u.Port())
+
+	subID := createSubscription(t, sourceName, eventType, targetURL)
+	t.Logf("Subscription %s → %s (400 mock)", subID, targetURL)
+
+	eventID := sendEvent(t, sourceName, eventType)
+	t.Logf("Event %s sent", eventID)
+
+	// The single attempt must arrive promptly.
+	select {
+	case <-attempts:
+		t.Log("Delivery attempt received by mock (returned 400)")
+	case <-time.After(30 * time.Second):
+		t.Fatal("No delivery attempt received within 30s")
+	}
+
+	// Scheduler ticks every 5s. Wait 20s to be confident no retry is coming.
+	select {
+	case <-attempts:
+		t.Fatal("Unexpected retry: 4xx response must fast-fail with no retries")
+	case <-time.After(20 * time.Second):
+		t.Log("No retry received after 20s — 4xx fast-fail confirmed")
+	}
+}
+
+// TestEndToEndWebhookDelivery_5xx_Retried verifies that a 5xx response triggers
+// the exponential-backoff retry scheduler (at least 2 delivery attempts expected).
+func TestEndToEndWebhookDelivery_5xx_Retried(t *testing.T) {
+	sourceName := "test-source-" + uuid.NewString()[:8]
+	eventType := "order.created"
+
+	attempts := make(chan struct{}, 10)
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.ReadAll(r.Body)
+		attempts <- struct{}{}
+		w.WriteHeader(http.StatusServiceUnavailable) // 503 → retries with backoff
+	}))
+	defer mockServer.Close()
+
+	u, _ := url.Parse(mockServer.URL)
+	targetURL := fmt.Sprintf("http://host.docker.internal:%s", u.Port())
+
+	subID := createSubscription(t, sourceName, eventType, targetURL)
+	t.Logf("Subscription %s → %s (503 mock)", subID, targetURL)
+
+	eventID := sendEvent(t, sourceName, eventType)
+	t.Logf("Event %s sent", eventID)
+
+	// Expect at least 2 attempts: immediate + first retry.
+	// Delay(1) = BaseDelay * 2^1 = 5s * 2 = 10s; scheduler tick adds up to 5s → ~15s total.
+	const minAttempts = 2
+	received := 0
+	timeoutAt := time.Now().Add(60 * time.Second)
+	for received < minAttempts {
+		remaining := time.Until(timeoutAt)
+		if remaining <= 0 {
+			t.Fatalf("timeout: received only %d/%d delivery attempts", received, minAttempts)
+		}
+		select {
+		case <-attempts:
+			received++
+			t.Logf("Delivery attempt %d received (503 returned)", received)
+		case <-time.After(remaining):
+			t.Fatalf("timeout: received only %d/%d delivery attempts", received, minAttempts)
+		}
+	}
+	t.Logf("5xx retry confirmed: at least %d attempts observed", received)
+}
+
+// TestEndToEndWebhookDelivery_DeadServer verifies that a connection-refused
+// destination does not block or crash the pipeline for sibling subscriptions.
+func TestEndToEndWebhookDelivery_DeadServer(t *testing.T) {
+	sourceName := "test-source-" + uuid.NewString()[:8]
+	eventType := "order.created"
+
+	// Good mock — must still receive the delivery despite the dead peer.
+	goodReceived := make(chan struct{}, 1)
+	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.ReadAll(r.Body)
+		goodReceived <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer goodServer.Close()
+
+	gu, _ := url.Parse(goodServer.URL)
+	goodURL := fmt.Sprintf("http://host.docker.internal:%s", gu.Port())
+
+	// Dead URL — port 19999 has nothing listening on it.
+	deadURL := "http://host.docker.internal:19999"
+
+	deadSubID := createSubscription(t, sourceName, eventType, deadURL)
+	goodSubID := createSubscription(t, sourceName, eventType, goodURL)
+	t.Logf("Dead subscription %s → %s", deadSubID, deadURL)
+	t.Logf("Good subscription %s → %s", goodSubID, goodURL)
+
+	eventID := sendEvent(t, sourceName, eventType)
+	t.Logf("Event %s sent", eventID)
+
+	// The good subscription must be delivered successfully.
+	select {
+	case <-goodReceived:
+		t.Log("Good subscription delivered successfully alongside a dead-server subscription")
+	case <-time.After(60 * time.Second):
+		t.Fatal("Good subscription not delivered within 60s — dead peer may have blocked the pipeline")
+	}
 }
 
 func TestHealthChecks(t *testing.T) {
