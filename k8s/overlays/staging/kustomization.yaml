@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - secrets.yaml
+
+# Переопределяем секрет Grafana с более строгим паролем
+secretGenerator:
+  - name: grafana-credentials
+    namespace: webhooks
+    literals:
+      - admin-user=admin
+      - admin-password=tVbfSvowVeJXPqW3mvYf
+    behavior: replace
+    options:
+      disableNameSuffixHash: true

@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: webhooks
+
+resources:
+  - namespace.yaml
+
+  - messaging/kafka.yaml
+  - messaging/kafka-ui.yaml
+
+  - storage/cassandra.yaml
+
+  - apps/event-receiver.yaml
+  - apps/delivery-service.yaml
+  - apps/subscriptions-api.yaml
+  - apps/subscriptions-worker.yaml
+
+  - observability/0-grafana-config.yaml
+  - observability/1-alloy.yaml
+  - observability/2-loki.yaml
+  - observability/3-prometheus.yaml
+  - observability/4-grafana.yaml
