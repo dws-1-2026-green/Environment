@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delivery-service-config
+  namespace: webhooks
+data:
+  KAFKA_TOPIC: "deliveries.to_send"
+  KAFKA_GROUP_ID: "delivery-group"
+  METRICS_ADDR: ":9095"
+  CONSUMER_WORKERS: "50"

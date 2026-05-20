@@ -35,6 +35,13 @@ spec:
           image: ghcr.io/dws-1-2026-green/eventreceiver:master
           ports:
             - containerPort: 8080
-          env:
-            - name: KAFKA_BROKERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config

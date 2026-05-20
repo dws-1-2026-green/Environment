@@ -46,16 +46,20 @@ spec:
           image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
           ports:
             - containerPort: 9091
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config
+            - configMapRef:
+                name: subscriptions-config
           env:
             - name: BUILD_TARGET
               value: "worker"
-            - name: KAFKA_BROKERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
-            - name: STORE_BACKEND
-              value: "cassandra"
-            - name: CASSANDRA_HOSTS
-              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
-            - name: CASSANDRA_CONSISTENCY
-              value: "LOCAL_ONE"
             - name: METRICS_ADDR
               value: ":9091"
