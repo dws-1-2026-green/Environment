@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: subscriptions-config
+  namespace: webhooks
+data:
+  STORE_BACKEND: "cassandra"
+  CASSANDRA_HOSTS: "cassandra-0.cassandra.webhooks.svc.cluster.local"
+  CASSANDRA_CONSISTENCY: "LOCAL_ONE"
+  CACHE_TTL: "60s"
+  WORKER_CONCURRENCY: "10"

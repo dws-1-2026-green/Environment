@@ -6,6 +6,10 @@ namespace: webhooks
 resources:
   - namespace.yaml
 
+  - config/shared.yaml
+  - config/subscriptions.yaml
+  - config/delivery-service.yaml
+
   - messaging/kafka.yaml
   - messaging/kafka-ui.yaml
 
@@ -16,6 +20,8 @@ resources:
   - apps/delivery-service.yaml
   - apps/subscriptions-api.yaml
   - apps/subscriptions-worker.yaml
+  - apps/hpa-event-receiver.yaml
+  - apps/keda-scaledobjects.yaml
 
   - observability/0-grafana-config.yaml
   - observability/1-alloy.yaml

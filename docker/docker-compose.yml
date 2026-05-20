@@ -1,4 +1,4 @@
-version: "3.8"
+﻿version: "3.8"
 
 services:
   event-receiver:
@@ -127,15 +127,15 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
-      # Слушаем на двух портах:
-      # 9092 - для подключений с хоста
-      # 9094 - для подключений внутри Docker-сети
+      # РЎР»СѓС€Р°РµРј РЅР° РґРІСѓС… РїРѕСЂС‚Р°С…:
+      # 9092 - РґР»СЏ РїРѕРґРєР»СЋС‡РµРЅРёР№ СЃ С…РѕСЃС‚Р°
+      # 9094 - РґР»СЏ РїРѕРґРєР»СЋС‡РµРЅРёР№ РІРЅСѓС‚СЂРё Docker-СЃРµС‚Рё
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
 
-      # Рекламируем оба адреса:
-      # localhost:9092 - для приложений на хосте
-      # kafka:9094 - для сервисов внутри Docker (kafka-ui)
+      # Р РµРєР»Р°РјРёСЂСѓРµРј РѕР±Р° Р°РґСЂРµСЃР°:
+      # localhost:9092 - РґР»СЏ РїСЂРёР»РѕР¶РµРЅРёР№ РЅР° С…РѕСЃС‚Рµ
+      # kafka:9094 - РґР»СЏ СЃРµСЂРІРёСЃРѕРІ РІРЅСѓС‚СЂРё Docker (kafka-ui)
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:9094
 
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -276,10 +276,10 @@ services:
     volumes:
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./k8s/base/dashboards/subscriptions.json:/etc/grafana/provisioning/dashboards/subscriptions.json:ro
-      - ./k8s/base/dashboards/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
-      - ./k8s/base/dashboards/delivery-service.json:/etc/grafana/provisioning/dashboards/delivery-service.json:ro
-      - ./k8s/base/dashboards/event-receiver.json:/etc/grafana/provisioning/dashboards/event-receiver.json:ro
+      - ../k8s/base/dashboards/subscriptions.json:/etc/grafana/provisioning/dashboards/subscriptions.json:ro
+      - ../k8s/base/dashboards/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
+      - ../k8s/base/dashboards/delivery-service.json:/etc/grafana/provisioning/dashboards/delivery-service.json:ro
+      - ../k8s/base/dashboards/event-receiver.json:/etc/grafana/provisioning/dashboards/event-receiver.json:ro
       - grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"
@@ -304,3 +304,4 @@ volumes:
   prometheus_data:
   grafana_data:
   cassandra_data:
+

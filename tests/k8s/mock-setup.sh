@@ -12,7 +12,7 @@
 set -e
 
 SUBSCRIPTIONS_URL="${SUBSCRIPTIONS_URL:-http://subscriptions.localhost}"
-NAMESPACE="${NAMESPACE:-webhooks}"
+NAMESPACE="${NAMESPACE:-webhooks-test}"
 
 echo "waiting for subscriptions-api at $SUBSCRIPTIONS_URL..."
 until curl -sf "$SUBSCRIPTIONS_URL/api/v1/subscriptions" > /dev/null 2>&1; do

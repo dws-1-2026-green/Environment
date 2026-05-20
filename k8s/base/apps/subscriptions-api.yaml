@@ -45,14 +45,11 @@ spec:
           image: ghcr.io/dws-1-2026-green/subscriptions-api:main
           ports:
             - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: subscriptions-config
           env:
             - name: BUILD_TARGET
               value: "api"
-            - name: STORE_BACKEND
-              value: "cassandra"
-            - name: CASSANDRA_HOSTS
-              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
-            - name: CASSANDRA_CONSISTENCY
-              value: "LOCAL_ONE"
             - name: HTTP_ADDR
               value: ":8082"

@@ -17,7 +17,6 @@ metadata:
   name: delivery-service
   namespace: webhooks
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: delivery-service
@@ -46,17 +45,21 @@ spec:
           image: ghcr.io/dws-1-2026-green/delivery-service:main
           ports:
             - containerPort: 9095
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config
+            - configMapRef:
+                name: delivery-service-config
           env:
-            - name: KAFKA_BROKERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
-            - name: KAFKA_TOPIC
-              value: "deliveries.to_send"
-            - name: METRICS_ADDR
-              value: ":9095"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: delivery-postgres-credentials
                   key: url
-            - name: CONSUMER_WORKERS
-              value: "50"
