@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultEventReceiverURL = "http://localhost:8080"
+	defaultEventReceiverURL = "http://event-receiver.localhost"
 )
 
 type EventPayload struct {

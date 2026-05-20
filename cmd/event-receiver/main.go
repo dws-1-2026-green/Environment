@@ -121,7 +121,7 @@ func (ws *WebhookServer) Subscribe(ctx context.Context, eventType, sourceFilter,
 	if webhookPath == "" {
 		webhookPath = eventType
 	}
-	webhookURL := fmt.Sprintf("http://host.docker.internal:%s/%s", ws.localPort, webhookPath)
+	webhookURL := fmt.Sprintf("http://host-webhook-listener.webhooks.svc.cluster.local:%s/%s", ws.localPort, webhookPath)
 
 	reqBody := map[string]interface{}{
 		"source":          sourceFilter,
@@ -210,7 +210,7 @@ func (ws *WebhookServer) Stop(ctx context.Context) error {
 
 func main() {
 	port := flag.String("port", "8888", "Port to listen on for webhooks")
-	subsAPI := flag.String("subs-api", "http://localhost:8082", "Subscriptions Service API URL")
+	subsAPI := flag.String("subs-api", "http://subscriptions.localhost", "Subscriptions Service API URL")
 	flag.Parse()
 
 	server := NewWebhookServer(*subsAPI, *port)

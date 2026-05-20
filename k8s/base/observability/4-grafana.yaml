@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-credentials
+  namespace: webhooks
+type: Opaque
+stringData:
+  admin-user: admin
+  admin-password: admin
+---
+# ─── Grafana Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: webhooks
+spec:
+  clusterIP: None
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+# ─── Grafana StatefulSet ──────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: webhooks
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.0.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-password
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml
+              subPath: dashboards.yml
+            - name: dashboard-delivery-service
+              mountPath: /etc/grafana/provisioning/dashboards/delivery-service.json
+              subPath: delivery-service.json
+            - name: dashboard-event-receiver
+              mountPath: /etc/grafana/provisioning/dashboards/event-receiver.json
+              subPath: event-receiver.json
+            - name: dashboard-overview
+              mountPath: /etc/grafana/provisioning/dashboards/overview.json
+              subPath: overview.json
+            - name: dashboard-subscriptions
+              mountPath: /etc/grafana/provisioning/dashboards/subscriptions.json
+              subPath: subscriptions.json
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources/prometheus.yml
+              subPath: prometheus.yml
+      volumes:
+        - name: dashboards-config
+          configMap:
+            name: grafana-dashboards-config
+        - name: dashboard-delivery-service
+          configMap:
+            name: grafana-dashboard-delivery-service
+        - name: dashboard-event-receiver
+          configMap:
+            name: grafana-dashboard-event-receiver
+        - name: dashboard-overview
+          configMap:
+            name: grafana-dashboard-overview
+        - name: dashboard-subscriptions
+          configMap:
+            name: grafana-dashboard-subscriptions
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+  volumeClaimTemplates:
+    - metadata:
+        name: grafana-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
