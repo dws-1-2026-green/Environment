@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: delivery-postgres-credentials
+  namespace: webhooks
+type: Opaque
+stringData:
+  username: ds
+  password: ds-password
+  database: delivery
+  url: "postgres://ds:ds-password@delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local:5432/delivery"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-postgres
+  namespace: webhooks
+spec:
+  clusterIP: None
+  selector:
+    app: delivery-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: delivery-postgres
+  namespace: webhooks
+spec:
+  serviceName: delivery-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivery-postgres
+  template:
+    metadata:
+      labels:
+        app: delivery-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-postgres-credentials
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-postgres-credentials
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-postgres-credentials
+                  key: database
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ds", "-d", "delivery"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ds", "-d", "delivery"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delivery-postgres-schema
+  namespace: webhooks
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS deliveries (
+        id              TEXT PRIMARY KEY,
+        event_id        TEXT NOT NULL,
+        subscription_id TEXT NOT NULL,
+        destination_url TEXT NOT NULL,
+        method          TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'pending',
+        attempts        INT  NOT NULL DEFAULT 0,
+        last_error      TEXT NOT NULL DEFAULT '',
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_deliveries_event_id ON deliveries (event_id);
+    CREATE INDEX IF NOT EXISTS idx_deliveries_status   ON deliveries (status);
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delivery-postgres-migrate
+  namespace: webhooks
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local -U ds -d delivery; do
+                echo "Waiting for PostgreSQL..."; sleep 5;
+              done
+      containers:
+        - name: migrate
+          image: postgres:16-alpine
+          command:
+            - psql
+            - -h
+            - delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local
+            - -U
+            - ds
+            - -d
+            - delivery
+            - -f
+            - /schema.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-postgres-credentials
+                  key: password
+          volumeMounts:
+            - name: schema
+              mountPath: /schema.sql
+              subPath: init.sql
+      volumes:
+        - name: schema
+          configMap:
+            name: delivery-postgres-schema

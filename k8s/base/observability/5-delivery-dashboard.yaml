@@ -1,33 +1,29 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: delivery-service
+  name: delivery-dashboard
   namespace: webhooks
 spec:
   selector:
-    app: delivery-service
+    app: delivery-dashboard
   ports:
-    - name: metrics
-      port: 9095
-      targetPort: 9095
+    - port: 9096
+      targetPort: 9096
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: delivery-service
+  name: delivery-dashboard
   namespace: webhooks
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: delivery-service
+      app: delivery-dashboard
   template:
     metadata:
       labels:
-        app: delivery-service
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9095"
+        app: delivery-dashboard
     spec:
       imagePullSecrets:
         - name: ghcr-credentials
@@ -42,21 +38,15 @@ spec:
                 echo "Waiting for PostgreSQL..."; sleep 5;
               done
       containers:
-        - name: delivery-service
-          image: ghcr.io/dws-1-2026-green/delivery-service:main
+        - name: delivery-dashboard
+          image: ghcr.io/dws-1-2026-green/delivery-dashboard:main
           ports:
-            - containerPort: 9095
+            - containerPort: 9096
           env:
-            - name: KAFKA_BROKERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
-            - name: KAFKA_TOPIC
-              value: "deliveries.to_send"
-            - name: METRICS_ADDR
-              value: ":9095"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: delivery-postgres-credentials
                   key: url
-            - name: CONSUMER_WORKERS
-              value: "50"
+            - name: ADDR
+              value: ":9096"

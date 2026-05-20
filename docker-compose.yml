@@ -161,8 +161,8 @@ services:
       kafka:
         condition: service_healthy
     command: >
-      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 1 --replication-factor 1 &&
-               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 1 --replication-factor 1"
+      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 6 --replication-factor 1 &&
+               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 6 --replication-factor 1"
     restart: "no"
     networks:
       - kafka-net
@@ -274,7 +274,12 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./k8s/base/dashboards/subscriptions.json:/etc/grafana/provisioning/dashboards/subscriptions.json:ro
+      - ./k8s/base/dashboards/overview.json:/etc/grafana/provisioning/dashboards/overview.json:ro
+      - ./k8s/base/dashboards/delivery-service.json:/etc/grafana/provisioning/dashboards/delivery-service.json:ro
+      - ./k8s/base/dashboards/event-receiver.json:/etc/grafana/provisioning/dashboards/event-receiver.json:ro
       - grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"

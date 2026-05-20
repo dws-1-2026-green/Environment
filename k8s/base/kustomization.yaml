@@ -10,6 +10,7 @@ resources:
   - messaging/kafka-ui.yaml
 
   - storage/cassandra.yaml
+  - storage/postgres.yaml
 
   - apps/event-receiver.yaml
   - apps/delivery-service.yaml
@@ -21,3 +22,22 @@ resources:
   - observability/2-loki.yaml
   - observability/3-prometheus.yaml
   - observability/4-grafana.yaml
+  - observability/5-delivery-dashboard.yaml
+  - observability/6-kafka-exporter.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: grafana-dashboard-subscriptions
+    files:
+      - subscriptions.json=dashboards/subscriptions.json
+  - name: grafana-dashboard-overview
+    files:
+      - overview.json=dashboards/overview.json
+  - name: grafana-dashboard-delivery-service
+    files:
+      - delivery-service.json=dashboards/delivery-service.json
+  - name: grafana-dashboard-event-receiver
+    files:
+      - event-receiver.json=dashboards/event-receiver.json

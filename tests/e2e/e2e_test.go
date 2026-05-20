@@ -20,8 +20,8 @@ import (
 // 2. The ports 8080 (EventReceiver), 8082 (Subscriptions API) are accessible.
 
 const (
-	eventReceiverURL    = "http://localhost:8080"
-	subscriptionsAPIURL = "http://localhost:8082"
+	eventReceiverURL    = "http://event-receiver.localhost"
+	subscriptionsAPIURL = "http://subscriptions.localhost"
 )
 
 func TestEndToEndWebhookDelivery(t *testing.T) {

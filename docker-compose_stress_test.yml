@@ -22,10 +22,11 @@ services:
     restart: unless-stopped
     environment:
       MOCK_NAME: reliable
-      MOCK_ERROR_PCT: "3"   # 3%  → 503, retry
-      MOCK_RESET_PCT: "2"   # 2%  → conn reset, retry
-      MOCK_SLOW_PCT: "10"   # 10% → 200 in 500ms-2s
-                             # 85% → 200 in 1-50ms
+      MOCK_CLIENT_ERROR_PCT: "2"  # 2%  → 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "3"         # 3%  → 503, retry
+      MOCK_RESET_PCT: "2"         # 2%  → conn reset, retry
+      MOCK_SLOW_PCT: "10"         # 10% → 200 in 500ms-2s
+                                   # 83% → 200 in 1-50ms
     networks:
       - mock-net
 
@@ -36,10 +37,11 @@ services:
     restart: unless-stopped
     environment:
       MOCK_NAME: flaky
-      MOCK_ERROR_PCT: "15"  # 15% → 503, retry
-      MOCK_RESET_PCT: "10"  # 10% → conn reset, retry
-      MOCK_SLOW_PCT: "20"   # 20% → 200 in 500ms-2s
-                             # 55% → 200 in 1-50ms
+      MOCK_CLIENT_ERROR_PCT: "5"  # 5%  → 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "15"        # 15% → 503, retry
+      MOCK_RESET_PCT: "10"        # 10% → conn reset, retry
+      MOCK_SLOW_PCT: "20"         # 20% → 200 in 500ms-2s
+                                   # 50% → 200 in 1-50ms
     networks:
       - mock-net
 
@@ -50,10 +52,11 @@ services:
     restart: unless-stopped
     environment:
       MOCK_NAME: chaos
-      MOCK_ERROR_PCT: "30"  # 30% → 503, retry
-      MOCK_RESET_PCT: "20"  # 20% → conn reset, retry
-      MOCK_SLOW_PCT: "15"   # 15% → 200 in 500ms-2s
-                             # 35% → 200 in 1-50ms
+      MOCK_CLIENT_ERROR_PCT: "10" # 10% → 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "30"        # 30% → 503, retry
+      MOCK_RESET_PCT: "20"        # 20% → conn reset, retry
+      MOCK_SLOW_PCT: "15"         # 15% → 200 in 500ms-2s
+                                   # 25% → 200 in 1-50ms
     networks:
       - mock-net
 

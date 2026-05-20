@@ -22,9 +22,10 @@ func envInt(key string, def int) int {
 
 type weights struct {
 	// cumulative upper bounds, roll in [0, 100)
-	errorUpto int // 503
-	resetUpto int // connection reset — triggers retry in delivery-service same as timeout
-	slowUpto  int // 200 after 500ms-2s
+	clientErrorUpto int // 400 — fast-fail, no retries
+	errorUpto       int // 503 — triggers exponential-backoff retry
+	resetUpto       int // connection reset — same as timeout, triggers retry
+	slowUpto        int // 200 after 500ms-2s
 	// rest: 200 after 1-50ms (fast)
 }
 
@@ -38,19 +39,21 @@ func main() {
 		port = "8080"
 	}
 
+	clientErrorPct := envInt("MOCK_CLIENT_ERROR_PCT", 0)
 	errorPct := envInt("MOCK_ERROR_PCT", 5)
 	resetPct := envInt("MOCK_RESET_PCT", 5)
 	slowPct := envInt("MOCK_SLOW_PCT", 20)
 	w := weights{
-		errorUpto: errorPct,
-		resetUpto: errorPct + resetPct,
-		slowUpto:  errorPct + resetPct + slowPct,
+		clientErrorUpto: clientErrorPct,
+		errorUpto:       clientErrorPct + errorPct,
+		resetUpto:       clientErrorPct + errorPct + resetPct,
+		slowUpto:        clientErrorPct + errorPct + resetPct + slowPct,
 	}
 
 	slog.Info("mock receiver starting",
 		"name", name, "port", port,
-		"error%", errorPct, "reset%", resetPct,
-		"slow%", slowPct, "fast%", 100-w.slowUpto,
+		"client_error%", clientErrorPct, "error%", errorPct,
+		"reset%", resetPct, "slow%", slowPct, "fast%", 100-w.slowUpto,
 	)
 
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
@@ -61,6 +64,10 @@ func main() {
 		var kind string
 
 		switch {
+		case roll < w.clientErrorUpto:
+			kind = "client-error"
+			rw.WriteHeader(http.StatusBadRequest)
+
 		case roll < w.errorUpto:
 			kind = "error"
 			time.Sleep(time.Duration(rand.IntN(50)) * time.Millisecond)
