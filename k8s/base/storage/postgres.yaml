@@ -8,7 +8,7 @@ stringData:
   username: ds
   password: ds-password
   database: delivery
-  url: "postgres://ds:ds-password@delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local:5432/delivery"
+  url: "postgres://ds:ds-password@pgbouncer.webhooks.svc.cluster.local:5432/delivery?default_query_exec_mode=simple_protocol"
 ---
 apiVersion: v1
 kind: Service

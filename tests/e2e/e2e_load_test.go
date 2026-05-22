@@ -30,9 +30,11 @@ import (
 
 const loadDuration = 10 * time.Minute
 
-func TestLoad_10RPS(t *testing.T)  { runLoad(t, 10) }
-func TestLoad_50RPS(t *testing.T)  { runLoad(t, 50) }
-func TestLoad_100RPS(t *testing.T) { runLoad(t, 100) }
+func TestLoad_10RPS(t *testing.T)   { runLoad(t, 10) }
+func TestLoad_50RPS(t *testing.T)   { runLoad(t, 50) }
+func TestLoad_100RPS(t *testing.T)  { runLoad(t, 100) }
+func TestLoad_500RPS(t *testing.T)  { runLoad(t, 500) }
+func TestLoad_1000RPS(t *testing.T) { runLoad(t, 1000) }
 
 func runLoad(t *testing.T, rps int) {
 	t.Helper()
@@ -79,6 +81,7 @@ func runLoad(t *testing.T, rps int) {
 	defer ticker.Stop()
 
 	var wg sync.WaitGroup
+	var errMap sync.Map
 
 	for time.Now().Before(deadline) {
 		<-ticker.C
@@ -104,6 +107,12 @@ func runLoad(t *testing.T, rps int) {
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted {
 				ok.Add(1)
 			} else {
+				val, okGet := errMap.Load(resp.Status)
+				if okGet {
+					errMap.Store(resp.Status, val.(int)+1)
+				} else {
+					errMap.Store(resp.Status, 1)
+				}
 				errCount.Add(1)
 			}
 		}(sent.Add(1))
@@ -116,4 +125,9 @@ func runLoad(t *testing.T, rps int) {
 	s := sent.Load()
 	t.Logf("done: rps=%d duration=%.0fs sent=%d ok=%d err=%d actual=%.1f rps",
 		rps, elapsed, s, ok.Load(), errCount.Load(), float64(s)/elapsed)
+	t.Logf("errors map:")
+	errMap.Range(func(key, value any) bool {
+		t.Logf("key: %s, value: %d", key, value)
+		return true
+	})
 }

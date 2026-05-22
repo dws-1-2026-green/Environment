@@ -98,5 +98,5 @@ spec:
             - sh
             - -c
             - |
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic routing.requests --partitions 2 --replication-factor 1 &&
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic deliveries.to_send --partitions 2 --replication-factor 1
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic routing.requests --partitions 5 --replication-factor 1 &&
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.webhooks.svc.cluster.local:9094 --create --if-not-exists --topic deliveries.to_send --partitions 10 --replication-factor 1

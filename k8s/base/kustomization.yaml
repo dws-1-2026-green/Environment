@@ -15,6 +15,7 @@ resources:
 
   - storage/cassandra.yaml
   - storage/postgres.yaml
+  - storage/pgbouncer.yaml
 
   - apps/event-receiver.yaml
   - apps/delivery-service.yaml

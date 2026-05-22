@@ -1,7 +1,7 @@
 {
   "title": "Event Receiver",
   "uid": "event-receiver",
-  "version": 1,
+  "version": 2,
   "schemaVersion": 38,
   "refresh": "15s",
   "time": { "from": "now-1h", "to": "now" },
@@ -12,7 +12,8 @@
         "label": "Pod",
         "type": "query",
         "datasource": "Prometheus",
-        "query": "label_values(go_goroutines{job=\"event-receiver\"}, pod)",
+        "query": "query_result(last_over_time(go_goroutines{job=\"event-receiver\"}[10m]))",
+        "regex": "/pod=\"([^\"]+)\"/",
         "refresh": 2,
         "sort": 1,
         "multi": false,
@@ -24,12 +25,19 @@
   },
   "panels": [
     {
+      "id": 100,
+      "title": "Events Received",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
       "id": 1,
       "title": "Events Received — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "event_receiver_events_received_total{pod=\"$pod\"}",
@@ -39,12 +47,19 @@
       ]
     },
     {
+      "id": 101,
+      "title": "Events Published to Kafka",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
+    },
+    {
       "id": 2,
       "title": "Events Published to Kafka — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -64,16 +79,23 @@
       },
       "targets": [
         {
-          "expr": "event_receiver_events_published_total{status='success', pod=\"$pod\"}",
+          "expr": "event_receiver_events_published_total{status=\"success\", pod=\"$pod\"}",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "event_receiver_events_published_total{status='error', pod=\"$pod\"}",
+          "expr": "event_receiver_events_published_total{status=\"error\", pod=\"$pod\"}",
           "legendFormat": "error",
           "datasource": "Prometheus"
         }
       ]
+    },
+    {
+      "id": 102,
+      "title": "HTTP Requests",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }
     },
     {
       "id": 3,
@@ -81,7 +103,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "sum by (method, path, status_code)(rate(event_receiver_http_requests_total{pod=\"$pod\"}[1m]))",
@@ -91,12 +113,19 @@
       ]
     },
     {
+      "id": 103,
+      "title": "Latency: POST /events",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 }
+    },
+    {
       "id": 4,
       "title": "Latency: POST /events (ms) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 21, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events', pod=\"$pod\"}[1m]))) * 1000",
@@ -121,12 +150,19 @@
       ]
     },
     {
+      "id": 104,
+      "title": "Latency: GET /health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 33, "w": 24, "h": 1 }
+    },
+    {
       "id": 5,
       "title": "Latency: GET /health (ms) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 29, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 34, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/health', pod=\"$pod\"}[1m]))) * 1000",
@@ -151,11 +187,11 @@
       ]
     },
     {
-      "id": 6,
+      "id": 105,
       "title": "Resources",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 37, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 1 }
     },
     {
       "id": 7,
@@ -163,7 +199,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 38, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 43, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "percent" },
         "overrides": []
@@ -182,7 +218,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 45, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "bytes" },
         "overrides": []
@@ -206,7 +242,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 57, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": []

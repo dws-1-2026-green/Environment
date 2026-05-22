@@ -58,7 +58,7 @@
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(event_receiver_events_published_total{status='success'})",
+          "expr": "sum(event_receiver_events_published_total{status=\"success\"})",
           "legendFormat": "events → routing.requests",
           "datasource": "Prometheus"
         },
@@ -68,7 +68,7 @@
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(event_receiver_events_published_total{status='error'}) or vector(0)",
+          "expr": "sum(event_receiver_events_published_total{status=\"error\"}) or vector(0)",
           "legendFormat": "events failed (kafka)",
           "datasource": "Prometheus"
         }
@@ -120,12 +120,12 @@
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_final_status_total{status='success'})",
+          "expr": "sum(delivery_final_status_total{status=\"success\"})",
           "legendFormat": "deliveries: success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_final_status_total{status='exhausted'}) or vector(0)",
+          "expr": "sum(delivery_final_status_total{status=\"exhausted\"}) or vector(0)",
           "legendFormat": "deliveries: exhausted",
           "datasource": "Prometheus"
         }
@@ -161,7 +161,7 @@
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_final_status_total{status='success'}) / sum(delivery_messages_received_total)",
+          "expr": "sum(delivery_final_status_total{status=\"success\"}) / sum(delivery_messages_received_total)",
           "legendFormat": "delivery success rate",
           "datasource": "Prometheus"
         }
@@ -210,7 +210,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(event_receiver_events_published_total{status='success'}[$__range]))",
+          "expr": "sum(increase(event_receiver_events_published_total{status=\"success\"}[$__range]))",
           "legendFormat": "published",
           "datasource": "Prometheus"
         }
@@ -307,7 +307,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(delivery_final_status_total{status='success'}[$__range]))",
+          "expr": "sum(increase(delivery_final_status_total{status=\"success\"}[$__range]))",
           "legendFormat": "delivered",
           "datasource": "Prometheus"
         }
@@ -331,7 +331,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(delivery_final_status_total{status='exhausted'}[$__range])) or vector(0)",
+          "expr": "sum(increase(delivery_final_status_total{status=\"exhausted\"}[$__range])) or vector(0)",
           "legendFormat": "errors",
           "datasource": "Prometheus"
         }
@@ -356,7 +356,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_consumergroup_lag{topic=\"routing.requests\"}) by (consumergroup)",
+          "expr": "sum(kafka_consumergroup_lag{topic=\"routing.requests\"} >= 0) by (consumergroup)",
           "legendFormat": "{{consumergroup}}",
           "datasource": "Prometheus"
         }
@@ -381,7 +381,7 @@
       },
       "targets": [
         {
-          "expr": "sum(kafka_consumergroup_lag{topic=\"deliveries.to_send\"}) by (consumergroup)",
+          "expr": "sum(kafka_consumergroup_lag{topic=\"deliveries.to_send\"} >= 0) by (consumergroup)",
           "legendFormat": "{{consumergroup}}",
           "datasource": "Prometheus"
         }
