@@ -1,7 +1,7 @@
 {
   "title": "Subscriptions",
   "uid": "subscriptions",
-  "version": 1,
+  "version": 2,
   "schemaVersion": 38,
   "refresh": "15s",
   "time": { "from": "now-1h", "to": "now" },
@@ -12,7 +12,8 @@
         "label": "Pod",
         "type": "query",
         "datasource": "Prometheus",
-        "query": "label_values(go_goroutines{job=\"subscriptions-worker\"}, pod)",
+        "query": "query_result(last_over_time(go_goroutines{job=\"subscriptions-worker\"}[10m]))",
+        "regex": "/pod=\"([^\"]+)\"/",
         "refresh": 2,
         "sort": 1,
         "multi": false,
@@ -24,13 +25,20 @@
   },
   "panels": [
     {
+      "id": 100,
+      "title": "Kafka Consume Rate",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
       "id": 12,
       "title": "Kafka Consume Rate (msg/sec) — $pod",
       "description": "Скорость чтения сообщений из routing.requests. Показывает реальный throughput воркера.",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 7 },
+      "gridPos": { "x": 0, "y": 1, "w": 24, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "ops", "min": 0 },
         "overrides": [
@@ -55,11 +63,18 @@
           "datasource": "Prometheus"
         },
         {
-          "expr": "rate(sum by (pod)(subscriptions_events_processed_total{pod=\"$pod\"})[1m])",
+          "expr": "sum by (pod)(rate(subscriptions_events_processed_total{pod=\"$pod\"}[1m]))",
           "legendFormat": "processed",
           "datasource": "Prometheus"
         }
       ]
+    },
+    {
+      "id": 101,
+      "title": "Events Processed",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
     },
     {
       "id": 1,
@@ -67,7 +82,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "subscriptions_events_processed_total{pod=\"$pod\"}",
@@ -77,12 +92,19 @@
       ]
     },
     {
+      "id": 102,
+      "title": "Deliveries Dispatched",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }
+    },
+    {
       "id": 2,
       "title": "Deliveries Dispatched — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "subscriptions_deliveries_dispatched_total{pod=\"$pod\"}",
@@ -92,12 +114,19 @@
       ]
     },
     {
+      "id": 103,
+      "title": "Processing Outcomes",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 }
+    },
+    {
       "id": 3,
       "title": "Processing Outcomes — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -129,12 +158,19 @@
       ]
     },
     {
+      "id": 104,
+      "title": "DB Query Duration",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 1 }
+    },
+    {
       "id": 4,
       "title": "DB Query Duration (ms) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 21, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 33, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum by (le, backend)(rate(subscriptions_db_query_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
@@ -159,11 +195,11 @@
       ]
     },
     {
-      "id": 9,
+      "id": 105,
       "title": "Cache",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 29, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 1 }
     },
     {
       "id": 10,
@@ -172,7 +208,7 @@
       "type": "stat",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 30, "w": 6, "h": 7 },
+      "gridPos": { "x": 0, "y": 42, "w": 6, "h": 7 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -211,7 +247,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 6, "y": 30, "w": 18, "h": 7 },
+      "gridPos": { "x": 6, "y": 42, "w": 18, "h": 7 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -243,11 +279,11 @@
       ]
     },
     {
-      "id": 5,
+      "id": 106,
       "title": "Resources",
       "type": "row",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 37, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 1 }
     },
     {
       "id": 6,
@@ -255,7 +291,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 38, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "percent" },
         "overrides": []
@@ -274,7 +310,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 45, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 57, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "bytes" },
         "overrides": []
@@ -298,7 +334,7 @@
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
-      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 64, "w": 12, "h": 7 },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": []

@@ -161,8 +161,8 @@ services:
       kafka:
         condition: service_healthy
     command: >
-      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 6 --replication-factor 1 &&
-               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 6 --replication-factor 1"
+      bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic routing.requests --partitions 5 --replication-factor 1 &&
+               /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic deliveries.to_send --partitions 10 --replication-factor 1"
     restart: "no"
     networks:
       - kafka-net
