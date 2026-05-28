@@ -15,7 +15,7 @@ metadata:
 type: Opaque
 data:
   # echo -n 'admin:$apr1$REPLACE_WITH_HTPASSWD_HASH' | base64
-  auth: YWRtaW46JGFwcjEkYlBDckFudmQkeGoxUUhzRlMzbGdyb2VzMXdENXZuLw0K
+  auth: YWRtaW46JGFwcjEkZ2tlanBOMnkkRzlBcG9ibk9PU2dxb2JYdlRhWVBqLw==
 ---
 # ─── Ingress ──────────────────────────────────────────────────────────────────
 # Требует установленного nginx ingress controller:
@@ -44,7 +44,7 @@ spec:
                 port:
                   number: 8080
 
-    - host: subscriptions.dws.sidey383.ru
+    - host: subscriptions.staging.dws.sidey383.ru
       http:
         paths:
           - path: /
@@ -55,7 +55,7 @@ spec:
                 port:
                   number: 8082
 
-    - host: kafka-ui.dws.sidey383.ru
+    - host: kafka-ui.staging.dws.sidey383.ru
       http:
         paths:
           - path: /
@@ -66,7 +66,7 @@ spec:
                 port:
                   number: 8080
 
-    - host: prometheus.dws.sidey383.ru
+    - host: prometheus.staging.dws.sidey383.ru
       http:
         paths:
           - path: /
@@ -77,7 +77,7 @@ spec:
                 port:
                   number: 9090
 
-    - host: grafana.dws.sidey383.ru
+    - host: grafana.staging.dws.sidey383.ru
       http:
         paths:
           - path: /

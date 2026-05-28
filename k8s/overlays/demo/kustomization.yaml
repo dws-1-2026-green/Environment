@@ -11,7 +11,7 @@ secretGenerator:
     namespace: webhooks
     literals:
       - admin-user=admin
-      - admin-password=o4ygr1Q5rcjhF8ZhGKhr
+      - admin-password=tVbfSvowVeJXPqW3mvYf
     behavior: replace
     options:
       disableNameSuffixHash: true

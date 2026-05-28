@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth
+  namespace: webhooks
+type: Opaque
+data:
+  auth: YWRtaW46JGFwcjEkYlBDckFudmQkeGoxUUhzRlMzbGdyb2VzMXdENXZuLw0K
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webhooks-demon
+  namespace: webhooks
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Webhooks Demo — Authorization Required"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: event-receiver
+                port:
+                  number: 8080
+
+    - host: subscriptions.demo.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: subscriptions-api
+                port:
+                  number: 8082
+
+    - host: kafka-ui.demo.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui
+                port:
+                  number: 8080
+
+    - host: prometheus.demo.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+
+    - host: grafana.demo.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000

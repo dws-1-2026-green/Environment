@@ -9,10 +9,10 @@
 | Сервис | URL | Описание |
 |--------|-----|----------|
 | Event Receiver | http://staging.dws.sidey383.ru | Приём входящих событий |
-| Subscriptions API | http://subscriptions.dws.sidey383.ru | Управление подписками |
-| Kafka UI | http://kafka-ui.dws.sidey383.ru | Просмотр топиков и сообщений Kafka |
-| Grafana | http://grafana.dws.sidey383.ru | Метрики и дашборды |
-| Prometheus | http://prometheus.dws.sidey383.ru | Raw метрики |
+| Subscriptions API | http://subscriptions.staging.dws.sidey383.ru | Управление подписками |
+| Kafka UI | http://kafka-ui.staging.dws.sidey383.ru | Просмотр топиков и сообщений Kafka |
+| Grafana | http://grafana.staging.dws.sidey383.ru | Метрики и дашборды |
+| Prometheus | http://prometheus.staging.dws.sidey383.ru | Raw метрики |
 
 **Basic Auth:** `admin` / см. у тимлида
 
@@ -27,8 +27,8 @@ go test ./tests/e2e/ -v -run "TestStaging" -timeout 120s
 
 Переменные окружения (опционально, есть дефолты):
 ```powershell
-$env:E2E_EVENT_RECEIVER_URL   = "http://staging.dws.sidey383.ru"
-$env:E2E_SUBSCRIPTIONS_URL    = "http://subscriptions.dws.sidey383.ru"
+$env:E2E_EVENT_RECEIVER_URL   = "http://staging.staging.dws.sidey383.ru"
+$env:E2E_SUBSCRIPTIONS_URL    = "http://subscriptions.staging.dws.sidey383.ru"
 $env:E2E_BASIC_AUTH_USER      = "admin"
 $env:E2E_BASIC_AUTH_PASS      = "..."
 ```
