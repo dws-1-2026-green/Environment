@@ -15,3 +15,4 @@ secretGenerator:
     behavior: replace
     options:
       disableNameSuffixHash: true
+      

@@ -6,6 +6,86 @@ resources:
   - ingress.yaml
   - secrets.yaml
 
+patches:
+  # ── Storage class ────────────────────────────────────────────────────────────
+  # VK Cloud PA2 zone. Change value for a different cloud/zone:
+  #   GZ1: csi-ceph-hdd-gz1
+  #   AWS: gp3 / gp2
+  #   GCP: standard-rwo
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: csi-ceph-hdd-pa2
+    target:
+      kind: StatefulSet
+      name: cassandra
+  # Kafka теперь управляется Strimzi → storage class задаётся на KafkaNodePool
+  - patch: |
+      - op: add
+        path: /spec/storage/volumes/0/class
+        value: csi-ceph-hdd-pa2
+    target:
+      kind: KafkaNodePool
+      name: dual-role
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: csi-ceph-hdd-pa2
+    target:
+      kind: StatefulSet
+      name: grafana
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: csi-ceph-hdd-pa2
+    target:
+      kind: StatefulSet
+      name: loki
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: csi-ceph-hdd-pa2
+    target:
+      kind: StatefulSet
+      name: prometheus
+
+  # ── Node affinity ────────────────────────────────────────────────────────────
+  # Pin stateful data services to a dedicated node group (VK Cloud label).
+  # Remove these patches if the cluster has no dedicated data node group.
+  - patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          mcs.mail.ru/mcs-nodepool: data
+    target:
+      kind: StatefulSet
+      name: cassandra
+  - patch: |
+      apiVersion: kafka.strimzi.io/v1beta2
+      kind: KafkaNodePool
+      metadata:
+        name: dual-role
+        namespace: webhooks
+      spec:
+        template:
+          pod:
+            nodeSelector:
+              mcs.mail.ru/mcs-nodepool: data
+
+  # ── Memory limits ─────────────────────────────────────────────────────────────
+  # Required on VK Cloud: namespace LimitRange sets a default limit of 512Mi.
+  # Without explicit limits, cassandra (1Gi request) fails validation: request ≤ limit.
+  # (Kafka limits заданы прямо в KafkaNodePool spec.resources в base.)
+  - patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits
+        value:
+          cpu: "1"
+          memory: 1Gi
+    target:
+      kind: StatefulSet
+      name: cassandra
+
 secretGenerator:
   - name: grafana-credentials
     namespace: webhooks

@@ -45,6 +45,10 @@ spec:
           image: ghcr.io/dws-1-2026-green/subscriptions-api:main
           ports:
             - containerPort: 8082
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: BUILD_TARGET
               value: "api"

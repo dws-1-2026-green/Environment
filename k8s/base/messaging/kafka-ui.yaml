@@ -30,8 +30,12 @@ spec:
           image: provectuslabs/kafka-ui:v0.7.1
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
           env:
             - name: KAFKA_CLUSTERS_0_NAME
               value: "local"
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+              value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"

@@ -1,0 +1,53 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Kafka-консьюмеры: масштабирование по лагу очереди через KEDA.
+# Требует установленного оператора KEDA (CRD keda.sh/v1alpha1).
+#
+# maxReplicaCount НЕ должен превышать число партиций топика — иначе лишние
+# поды простаивают (см. kafka.yaml: --partitions). Сейчас партиций 12.
+#
+# ⚠️ TODO: подставьте РЕАЛЬНЫЙ consumerGroup, который использует приложение.
+#    Если group id не совпадёт, KEDA будет читать чужой/нулевой лаг и скейлинг
+#    будет работать неверно. Проверить можно так:
+#      kafka-consumer-groups.sh --bootstrap-server <broker> --list
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: delivery-service        # имя Deployment
+  minReplicaCount: 1
+  maxReplicaCount: 12             # ≤ числу партиций топика deliveries.to_send
+  pollingInterval: 15            # как часто KEDA опрашивает лаг (сек)
+  cooldownPeriod: 300            # ожидание перед scale-to-min (сек)
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: delivery-service        # ⚠️ заменить на реальный group id
+        topic: deliveries.to_send
+        lagThreshold: "1000"                  # ~1000 сообщений лага на 1 под
+        offsetResetPolicy: latest
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: subscriptions-worker
+  minReplicaCount: 1
+  maxReplicaCount: 12             # ≤ числу партиций топика routing.requests
+  pollingInterval: 15
+  cooldownPeriod: 300
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: subscriptions-worker    # ⚠️ заменить на реальный group id
+        topic: routing.requests
+        lagThreshold: "1000"
+        offsetResetPolicy: latest

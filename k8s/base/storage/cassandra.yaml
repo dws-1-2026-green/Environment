@@ -68,6 +68,10 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
           volumeMounts:
             - name: cassandra-data
               mountPath: /var/lib/cassandra

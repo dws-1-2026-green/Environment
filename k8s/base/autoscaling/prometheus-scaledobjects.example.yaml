@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# ШАБЛОН (не подключён в kustomization.yaml).
+#
+# Задел под масштабирование по метрикам Prometheus через KEDA prometheus-триггер.
+# KEDA prometheus-триггеру ничего доустанавливать не нужно — только URL Prometheus.
+# Источник метрик: ваш Prometheus (observability/3-prometheus.yaml),
+#   serverAddress: http://prometheus.webhooks.svc.cluster.local:9090
+#
+# Когда определимся с конкретными стратегиями — скопировать нужный блок в
+# отдельный активный файл и добавить его в autoscaling/kustomization.yaml.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Пример 1. Консьюмер по лагу из Strimzi kafkaExporter (метрика kafka_consumergroup_lag).
+# Альтернатива kafka-триггеру: лаг берётся не из Kafka напрямую, а из Prometheus.
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: delivery-service-prom
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: delivery-service
+  minReplicaCount: 1
+  maxReplicaCount: 12
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.webhooks.svc.cluster.local:9090
+        # сумма лага по всем партициям топика для группы консьюмера
+        query: |
+          sum(kafka_consumergroup_lag{topic="deliveries.to_send"})
+        threshold: "1000"
+
+# Пример 2. HTTP-сервис по RPS (требует, чтобы приложение экспортировало метрику
+# запросов в Prometheus — подставьте реальное имя метрики/лейблы).
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: subscriptions-api-prom
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: subscriptions-api
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.webhooks.svc.cluster.local:9090
+        # пример: средний RPS на под за 2 минуты (замените http_requests_total на вашу метрику)
+        query: |
+          sum(rate(http_requests_total{app="subscriptions-api"}[2m]))
+        threshold: "50"   # целевой RPS на под

@@ -36,9 +36,13 @@ spec:
           image: ghcr.io/dws-1-2026-green/delivery-service:develop
           ports:
             - containerPort: 9095
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           env:
             - name: KAFKA_BROKERS
-              value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+              value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
             - name: KAFKA_TOPIC
               value: "deliveries.to_send"
             - name: METRICS_ADDR

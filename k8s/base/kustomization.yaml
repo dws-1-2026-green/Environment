@@ -16,6 +16,8 @@ resources:
   - apps/subscriptions-api.yaml
   - apps/subscriptions-worker.yaml
 
+  - autoscaling
+
   - observability/0-grafana-config.yaml
   - observability/1-alloy.yaml
   - observability/2-loki.yaml
