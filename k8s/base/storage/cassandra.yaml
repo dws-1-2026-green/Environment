@@ -1,89 +1,41 @@
-apiVersion: v1
-kind: Service
+apiVersion: k8ssandra.io/v1alpha1
+kind: K8ssandraCluster
 metadata:
   name: cassandra
   namespace: webhooks
 spec:
-  clusterIP: None
-  selector:
-    app: cassandra
-  ports:
-    - name: cql
-      port: 9042
-      targetPort: 9042
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: cassandra
-  namespace: webhooks
-spec:
-  serviceName: cassandra
-  replicas: 1
-  selector:
-    matchLabels:
-      app: cassandra
-  template:
-    metadata:
-      labels:
-        app: cassandra
-    spec:
-      containers:
-        - name: cassandra
-          image: cassandra:4.1
-          ports:
-            - containerPort: 9042
-          env:
-            # - name: CASSANDRA_USER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: cassandra-credentials
-            #       key: username
-            # - name: CASSANDRA_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: cassandra-credentials
-            #       key: password
-            - name: CASSANDRA_CLUSTER_NAME
-              value: "WebhooksCluster"
-            - name: CASSANDRA_DC
-              value: "dc1"
-            - name: CASSANDRA_ENDPOINT_SNITCH
-              value: "GossipingPropertyFileSnitch"
-            - name: MAX_HEAP_SIZE
-              value: "512M"
-            - name: HEAP_NEWSIZE
-              value: "100M"
-          readinessProbe:
-            exec:
-              command: ["cqlsh", "-e", "describe keyspaces"]
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 10
-          livenessProbe:
-            exec:
-              command: ["cqlsh", "-e", "describe keyspaces"]
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 5
-          resources:
-            requests:
-              cpu: 500m
-              memory: 1Gi
-          volumeMounts:
-            - name: cassandra-data
-              mountPath: /var/lib/cassandra
-  volumeClaimTemplates:
-    - metadata:
-        name: cassandra-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
+  auth: false
+  cassandra:
+    # serverVersion must match a version supported by k8ssandra-operator v1.32.1
+    # (typically 4.1.x; verify in operator release notes before applying)
+    serverVersion: "4.1.7"
+    datacenters:
+      - metadata:
+          name: dc1
+        size: 3
+        storageConfig:
+          cassandraDataVolumeClaimSpec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+            # storageClassName: set via overlay JSON6902 patch
+        config:
+          jvmOptions:
+            heapSize: "512M"
         resources:
           requests:
-            storage: 10Gi
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: "1"
+            memory: 2Gi
+  reaper:
+    autoScheduling:
+      enabled: true
 ---
+# CQL service: cassandra-dc1-service.webhooks.svc.cluster.local:9042
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -93,7 +45,7 @@ data:
   init.up.cql: |
     -- Keyspace for webhook subscriptions
     CREATE KEYSPACE IF NOT EXISTS webhooks
-    WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}
+    WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3}
     AND durable_writes = true;
 
     -- Table for subscriptions
@@ -143,7 +95,7 @@ spec:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
@@ -151,7 +103,7 @@ spec:
           image: cassandra:4.1
           command:
             - cqlsh
-            - cassandra-0.cassandra.webhooks.svc.cluster.local
+            - cassandra-dc1-service.webhooks.svc.cluster.local
             - -f
             - /schema.cql
           volumeMounts:

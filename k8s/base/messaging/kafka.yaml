@@ -7,7 +7,7 @@
 # ⚠️ Это НОВЫЙ кластер под управлением Strimzi — данные старого StatefulSet
 #    (PVC kafka-data-kafka-0) не переиспользуются.
 # ──────────────────────────────────────────────────────────────────────────────
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
   name: dual-role
@@ -35,7 +35,7 @@ spec:
       cpu: "1"
       memory: 1Gi
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: kafka
@@ -74,7 +74,7 @@ spec:
             prometheus.io/scrape: "true"
             prometheus.io/port: "9404"
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: routing-requests
@@ -86,7 +86,7 @@ spec:
   partitions: 12
   replicas: 1
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: deliveries-to-send

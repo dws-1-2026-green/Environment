@@ -14,10 +14,10 @@ patches:
   #   GCP: standard-rwo
   - patch: |
       - op: add
-        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        path: /spec/cassandra/datacenters/0/storageConfig/cassandraDataVolumeClaimSpec/storageClassName
         value: csi-ceph-hdd-pa2
     target:
-      kind: StatefulSet
+      kind: K8ssandraCluster
       name: cassandra
   # Kafka теперь управляется Strimzi → storage class задаётся на KafkaNodePool
   - patch: |
@@ -54,14 +54,16 @@ patches:
   # Remove these patches if the cluster has no dedicated data node group.
   - patch: |
       - op: add
-        path: /spec/template/spec/nodeSelector
+        path: /spec/cassandra/datacenters/0/racks
         value:
-          mcs.mail.ru/mcs-nodepool: data
+          - name: r1
+            nodeAffinityLabels:
+              mcs.mail.ru/mcs-nodepool: data
     target:
-      kind: StatefulSet
+      kind: K8ssandraCluster
       name: cassandra
   - patch: |
-      apiVersion: kafka.strimzi.io/v1beta2
+      apiVersion: kafka.strimzi.io/v1
       kind: KafkaNodePool
       metadata:
         name: dual-role
@@ -69,22 +71,18 @@ patches:
       spec:
         template:
           pod:
-            nodeSelector:
-              mcs.mail.ru/mcs-nodepool: data
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: mcs.mail.ru/mcs-nodepool
+                          operator: In
+                          values:
+                            - data
 
-  # ── Memory limits ─────────────────────────────────────────────────────────────
-  # Required on VK Cloud: namespace LimitRange sets a default limit of 512Mi.
-  # Without explicit limits, cassandra (1Gi request) fails validation: request ≤ limit.
-  # (Kafka limits заданы прямо в KafkaNodePool spec.resources в base.)
-  - patch: |
-      - op: add
-        path: /spec/template/spec/containers/0/resources/limits
-        value:
-          cpu: "1"
-          memory: 1Gi
-    target:
-      kind: StatefulSet
-      name: cassandra
+  # Memory limits for cassandra are now defined in base K8ssandraCluster
+  # (spec.cassandra.datacenters[0].resources.limits cpu:1/memory:2Gi).
 
 secretGenerator:
   - name: grafana-credentials

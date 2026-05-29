@@ -37,7 +37,7 @@ spec:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
@@ -55,7 +55,7 @@ spec:
             - name: STORE_BACKEND
               value: "cassandra"
             - name: CASSANDRA_HOSTS
-              value: "cassandra-0.cassandra.webhooks.svc.cluster.local"
+              value: "cassandra-dc1-service.webhooks.svc.cluster.local"
             - name: CASSANDRA_CONSISTENCY
               value: "LOCAL_ONE"
             - name: HTTP_ADDR

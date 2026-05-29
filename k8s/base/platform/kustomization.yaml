@@ -23,3 +23,9 @@ resources:
   - https://github.com/kedacore/keda/releases/download/v2.19.0/keda-2.19.0.yaml
   # Strimzi cluster operator (watch namespace = webhooks)
   - ../../strimzi-operator
+  # cert-manager — зависимость k8ssandra-operator (TLS-webhooks, сертификаты cass-operator)
+  # Порядок применения: cert-manager → (поды Ready) → k8ssandra-operator
+  - https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml
+  # k8ssandra-operator — управляет K8ssandraCluster CRD; control-plane режим (cluster-scoped)
+  # По умолчанию следит за всеми namespace, K8ssandraCluster в webhooks виден оператору.
+  - github.com/k8ssandra/k8ssandra-operator/config/deployments/control-plane?ref=v1.32.1
