@@ -5,6 +5,18 @@ resources:
   - https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.1/deploy/static/provider/cloud/deploy.yaml
 
 patches:
+  # Открыть порты 80/443 на LB для всех IP (VK Cloud/OpenStack создаёт security group
+  # по loadBalancerSourceRanges; без этого поля внешний трафик блокируется).
+  - patch: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ingress-nginx-controller
+        namespace: ingress-nginx
+      spec:
+        loadBalancerSourceRanges:
+          - 0.0.0.0/0
+
   # Run ingress-nginx on all nodes (one pod per node via anti-affinity)
   - patch: |-
       apiVersion: apps/v1

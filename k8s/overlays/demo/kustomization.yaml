@@ -8,14 +8,13 @@ resources:
 
 patches:
   # ── Storage class ────────────────────────────────────────────────────────────
-  # VK Cloud PA2 zone. Change value for a different cloud/zone:
-  #   GZ1: csi-ceph-hdd-gz1
-  #   AWS: gp3 / gp2
-  #   GCP: standard-rwo
+  # green-2 (зона MS1): топология-aware класс csi-ceph-hdd (WaitForFirstConsumer)
+  # — том создаётся в зоне пода, работает в любой зоне. Для жёсткой привязки к зоне
+  # можно использовать csi-ceph-hdd-ms1 / csi-ceph-hdd-pa2 / csi-ceph-hdd-gz1.
   - patch: |
       - op: add
         path: /spec/cassandra/datacenters/0/storageConfig/cassandraDataVolumeClaimSpec/storageClassName
-        value: csi-ceph-hdd-pa2
+        value: csi-ceph-hdd
     target:
       kind: K8ssandraCluster
       name: cassandra
@@ -23,45 +22,49 @@ patches:
   - patch: |
       - op: add
         path: /spec/storage/volumes/0/class
-        value: csi-ceph-hdd-pa2
+        value: csi-ceph-hdd
     target:
       kind: KafkaNodePool
       name: dual-role
   - patch: |
       - op: add
         path: /spec/volumeClaimTemplates/0/spec/storageClassName
-        value: csi-ceph-hdd-pa2
+        value: csi-ceph-hdd
     target:
       kind: StatefulSet
       name: grafana
   - patch: |
       - op: add
         path: /spec/volumeClaimTemplates/0/spec/storageClassName
-        value: csi-ceph-hdd-pa2
+        value: csi-ceph-hdd
     target:
       kind: StatefulSet
       name: loki
   - patch: |
       - op: add
         path: /spec/volumeClaimTemplates/0/spec/storageClassName
-        value: csi-ceph-hdd-pa2
+        value: csi-ceph-hdd
     target:
       kind: StatefulSet
       name: prometheus
 
-  # ── Node affinity ────────────────────────────────────────────────────────────
-  # Pin stateful data services to a dedicated node group (VK Cloud label).
-  # Remove these patches if the cluster has no dedicated data node group.
+  # ── Node placement (по меткам узлов, не по нодпулам) ─────────────────────────
+  # Данные (Cassandra, Kafka) → узлы с меткой webhooks-data=true
+  # Приложение и observability (Deployments + StatefulSets) → webhooks-worker=true
+  # Метки навешиваются на узлы вручную/нодпулом; здесь привязка идёт только к меткам.
+
+  # Cassandra → webhooks-data
   - patch: |
       - op: add
         path: /spec/cassandra/datacenters/0/racks
         value:
           - name: r1
             nodeAffinityLabels:
-              mcs.mail.ru/mcs-nodepool: data
+              webhooks-data: "true"
     target:
       kind: K8ssandraCluster
       name: cassandra
+  # Kafka → webhooks-data
   - patch: |
       apiVersion: kafka.strimzi.io/v1
       kind: KafkaNodePool
@@ -76,10 +79,27 @@ patches:
                 requiredDuringSchedulingIgnoredDuringExecution:
                   nodeSelectorTerms:
                     - matchExpressions:
-                        - key: mcs.mail.ru/mcs-nodepool
+                        - key: webhooks-data
                           operator: In
                           values:
-                            - data
+                            - "true"
+
+  # Все приложения (Deployments: apps + kafka-ui) → webhooks-worker
+  - patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          webhooks-worker: "true"
+    target:
+      kind: Deployment
+  # Observability (StatefulSets: prometheus, grafana, loki) → webhooks-worker
+  - patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          webhooks-worker: "true"
+    target:
+      kind: StatefulSet
 
   # Memory limits for cassandra are now defined in base K8ssandraCluster
   # (spec.cassandra.datacenters[0].resources.limits cpu:1/memory:2Gi).
