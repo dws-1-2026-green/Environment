@@ -48,6 +48,12 @@ data:
     WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3}
     AND durable_writes = true;
 
+    -- Create application user
+    CREATE USER IF NOT EXISTS webhooks_user WITH PASSWORD 'webhooks_pass' NOSUPERUSER;
+
+    -- Grant permissions on webhooks keyspace
+    GRANT ALL PERMISSIONS ON KEYSPACE webhooks TO webhooks_user;
+
     -- Table for subscriptions
     -- Partition key: (source, event_type) - optimized for lookup by source and event type
     -- Clustering key: subscription_id - allows multiple subscriptions per (source, event_type)
@@ -91,19 +97,45 @@ spec:
       initContainers:
         - name: wait-for-cassandra
           image: cassandra:4.1
+          env:
+            - name: CASSANDRA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: username
+            - name: CASSANDRA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: password
           command:
             - sh
             - -c
             - |
-              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -u $CASSANDRA_USER -p $CASSANDRA_PASSWORD -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
         - name: schema-init
           image: cassandra:4.1
+          env:
+            - name: CASSANDRA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: username
+            - name: CASSANDRA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: password
           command:
             - cqlsh
-            - cassandra-dc1-service.webhooks.svc.cluster.local
+            - -u
+            - $(CASSANDRA_USER)
+            - -p
+            - $(CASSANDRA_PASSWORD)
+            - cassandra-0.cassandra.webhooks.svc.cluster.local
             - -f
             - /schema.cql
           volumeMounts:

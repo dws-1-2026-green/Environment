@@ -34,11 +34,22 @@ spec:
       initContainers:
         - name: wait-for-cassandra
           image: cassandra:4.1
+          env:
+            - name: CASSANDRA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: username
+            - name: CASSANDRA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cassandra-credentials
+                  key: password
           command:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -u $CASSANDRA_USER -p $CASSANDRA_PASSWORD -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
