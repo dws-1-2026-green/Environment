@@ -46,6 +46,10 @@ spec:
           image: grafana/grafana:11.0.0
           ports:
             - containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
           env:
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:

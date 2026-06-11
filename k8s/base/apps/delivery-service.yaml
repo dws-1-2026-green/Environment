@@ -47,10 +47,10 @@ spec:
             - containerPort: 9095
           resources:
             requests:
-              cpu: 200m
+              cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 1000m
+              cpu: 500m
               memory: 512Mi
           envFrom:
             - configMapRef:
@@ -63,3 +63,23 @@ spec:
                 secretKeyRef:
                   name: delivery-postgres-credentials
                   key: url
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: delivery-service
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 120
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: delivery-group
+        topic: deliveries.to_send
+        lagThreshold: "50"
+        offsetResetPolicy: latest

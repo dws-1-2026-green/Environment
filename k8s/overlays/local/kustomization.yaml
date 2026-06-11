@@ -6,3 +6,18 @@ resources:
   - host-listener.yaml
   - ingress.yaml
   - dev-ports.yaml
+
+patches:
+  # Внешний доступ к Kafka для локальной разработки — external nodeport listener.
+  # Strimzi создаст сервис kafka-kafka-external-bootstrap (nodeport).
+  - patch: |
+      - op: add
+        path: /spec/kafka/listeners/-
+        value:
+          name: external
+          port: 9094
+          type: nodeport
+          tls: false
+    target:
+      kind: Kafka
+      name: kafka

@@ -37,7 +37,7 @@ spec:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
@@ -45,6 +45,10 @@ spec:
           image: ghcr.io/dws-1-2026-green/subscriptions-api:main
           ports:
             - containerPort: 8082
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
           envFrom:
             - configMapRef:
                 name: subscriptions-config
@@ -53,3 +57,36 @@ spec:
               value: "api"
             - name: HTTP_ADDR
               value: ":8082"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: subscriptions-api
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: subscriptions-api
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30

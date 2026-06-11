@@ -114,6 +114,10 @@ spec:
             - /etc/alloy/config.alloy
           ports:
             - containerPort: 12345
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
           volumeMounts:
             - name: config
               mountPath: /etc/alloy

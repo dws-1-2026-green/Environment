@@ -6,13 +6,42 @@ resources:
   - ingress.yaml
   - secrets.yaml
 
-# Переопределяем секрет Grafana с более строгим паролем
+patches:
+  # Single-node staging: RF=1 в схеме Cassandra
+  - path: cassandra-schema-patch.yaml
+
+  # Single-node staging: одна реплика Cassandra вместо трёх,
+  # init-контейнеры оператора ограничены по CPU для малых нод
+  - patch: |
+      - op: replace
+        path: /spec/cassandra/datacenters/0/size
+        value: 1
+      - op: add
+        path: /spec/cassandra/datacenters/0/initContainers
+        value:
+          - name: server-config-init-base
+            resources:
+              requests:
+                cpu: 50m
+              limits:
+                cpu: 200m
+          - name: server-config-init
+            resources:
+              requests:
+                cpu: 100m
+              limits:
+                cpu: 500m
+    target:
+      kind: K8ssandraCluster
+      name: cassandra
+
 secretGenerator:
   - name: grafana-credentials
     namespace: webhooks
     literals:
       - admin-user=admin
-      - admin-password=tVbfSvowVeJXPqW3mvYf
+      - admin-password=o4ygr1Q5rcjhF8ZhGKhr
     behavior: replace
     options:
       disableNameSuffixHash: true
+      

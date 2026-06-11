@@ -38,7 +38,7 @@ spec:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
@@ -48,10 +48,10 @@ spec:
             - containerPort: 9091
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 128Mi
             limits:
-              cpu: 500m
+              cpu: 250m
               memory: 256Mi
           envFrom:
             - configMapRef:
@@ -63,3 +63,23 @@ spec:
               value: "worker"
             - name: METRICS_ADDR
               value: ":9091"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: subscriptions-worker
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  cooldownPeriod: 120
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: subscriptions-worker
+        topic: routing.requests
+        lagThreshold: "100"
+        offsetResetPolicy: latest

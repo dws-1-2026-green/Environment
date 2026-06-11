@@ -21,8 +21,6 @@ resources:
   - apps/delivery-service.yaml
   - apps/subscriptions-api.yaml
   - apps/subscriptions-worker.yaml
-  - apps/hpa-event-receiver.yaml
-  - apps/keda-scaledobjects.yaml
 
   - observability/0-grafana-config.yaml
   - observability/1-alloy.yaml
@@ -30,7 +28,6 @@ resources:
   - observability/3-prometheus.yaml
   - observability/4-grafana.yaml
   - observability/5-delivery-dashboard.yaml
-  - observability/6-kafka-exporter.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

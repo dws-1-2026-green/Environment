@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Платформенный слой: операторы/аддоны, нужные всем окружениям.
+#
+# Два под-слоя с разными стратегиями namespace:
+#   cluster-infra/  — cert-manager, KEDA, metrics-server (свои namespace)
+#   k8ssandra/      — k8ssandra-operator + cass-operator + strimzi (namespace: webhooks)
+#
+# Операторы в webhooks namespace получают WATCH_NAMESPACE=webhooks автоматически
+# через fieldRef metadata.namespace — дополнительных патчей не требуется.
+#
+# Применять отдельным шагом перед overlay (после ingress-nginx):
+#   kubectl apply -k k8s/base/platform --server-side
+# ──────────────────────────────────────────────────────────────────────────────
+resources:
+  - cluster-infra
+  - k8ssandra
