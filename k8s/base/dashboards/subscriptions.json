@@ -1,0 +1,351 @@
+{
+  "title": "Subscriptions",
+  "uid": "subscriptions",
+  "version": 2,
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "query_result(last_over_time(go_goroutines{job=\"subscriptions-worker\"}[10m]))",
+        "regex": "/pod=\"([^\"]+)\"/",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Kafka Consume Rate",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 12,
+      "title": "Kafka Consume Rate (msg/sec) — $pod",
+      "description": "Скорость чтения сообщений из routing.requests. Показывает реальный throughput воркера.",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 1, "w": 24, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "min": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "consumed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "processed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(subscriptions_kafka_messages_consumed_total{pod=\"$pod\"}[1m])",
+          "legendFormat": "consumed",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "sum by (pod)(rate(subscriptions_events_processed_total{pod=\"$pod\"}[1m]))",
+          "legendFormat": "processed",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "title": "Events Processed",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
+    },
+    {
+      "id": 1,
+      "title": "Events Processed — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "subscriptions_events_processed_total{pod=\"$pod\"}",
+          "legendFormat": "processed",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "title": "Deliveries Dispatched",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "title": "Deliveries Dispatched — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "subscriptions_deliveries_dispatched_total{pod=\"$pod\"}",
+          "legendFormat": "dispatched",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "title": "Processing Outcomes",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 }
+    },
+    {
+      "id": 3,
+      "title": "Processing Outcomes — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "errors" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "subscriptions_events_processed_total{pod=\"$pod\"}",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "subscriptions_routing_errors_total{pod=\"$pod\"}",
+          "legendFormat": "errors",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "title": "DB Query Duration",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 1 }
+    },
+    {
+      "id": 4,
+      "title": "DB Query Duration (ms) — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 33, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, backend)(rate(subscriptions_db_query_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p50 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le, backend)(rate(subscriptions_db_query_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p90 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, backend)(rate(subscriptions_db_query_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p95 {{backend}}",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, backend)(rate(subscriptions_db_query_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p99 {{backend}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "title": "Cache",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 1 }
+    },
+    {
+      "id": 10,
+      "title": "Cache Hit Rate — $pod",
+      "description": "Доля запросов к подпискам, обслуженных из памяти. В норме — близко к 100%.",
+      "type": "stat",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 42, "w": 6, "h": 7 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(subscriptions_cache_hits_total{pod=\"$pod\"}[1m]) / (rate(subscriptions_cache_hits_total{pod=\"$pod\"}[1m]) + rate(subscriptions_cache_misses_total{pod=\"$pod\"}[1m])) * 100",
+          "legendFormat": "hit rate",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Cache Hits vs Misses — $pod",
+      "description": "Hits — запросы из памяти, Misses — запросы ушедшие в БД.",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 6, "y": 42, "w": 18, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "hits" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "misses" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(subscriptions_cache_hits_total{pod=\"$pod\"}[1m])",
+          "legendFormat": "hits",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "rate(subscriptions_cache_misses_total{pod=\"$pod\"}[1m])",
+          "legendFormat": "misses",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 106,
+      "title": "Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 1 }
+    },
+    {
+      "id": 6,
+      "title": "CPU — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"subscriptions-worker\", pod=\"$pod\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Memory — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 57, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"subscriptions-worker\", pod=\"$pod\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"subscriptions-worker\", pod=\"$pod\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Goroutines — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 64, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"subscriptions-worker\", pod=\"$pod\"}",
+          "legendFormat": "goroutines",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ]
+}

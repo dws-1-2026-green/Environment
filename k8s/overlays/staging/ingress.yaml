@@ -87,3 +87,14 @@ spec:
                 name: grafana
                 port:
                   number: 3000
+
+    - host: delivery-dashboard.dws.sidey383.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: delivery-dashboard
+                port:
+                  number: 9096

@@ -48,18 +48,38 @@ spec:
             - containerPort: 9091
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config
+            - configMapRef:
+                name: subscriptions-config
           env:
             - name: BUILD_TARGET
               value: "worker"
-            - name: KAFKA_BROKERS
-              value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
-            - name: STORE_BACKEND
-              value: "cassandra"
-            - name: CASSANDRA_HOSTS
-              value: "cassandra-dc1-service.webhooks.svc.cluster.local"
-            - name: CASSANDRA_CONSISTENCY
-              value: "LOCAL_ONE"
             - name: METRICS_ADDR
               value: ":9091"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: subscriptions-worker
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: subscriptions-worker
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  cooldownPeriod: 120
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: subscriptions-worker
+        topic: routing.requests
+        lagThreshold: "100"
+        offsetResetPolicy: latest

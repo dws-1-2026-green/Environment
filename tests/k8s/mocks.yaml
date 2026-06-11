@@ -1,0 +1,158 @@
+# Mock webhook receivers deployed in a separate namespace (webhooks-test).
+#
+# Build the image first (from Environment/ directory):
+#   docker build -t mock-receiver:local ./cmd/mock-receiver
+#
+# Then apply:
+#   kubectl apply -f tests/k8s/mocks.yaml
+#
+# Register subscriptions pointing at the mocks:
+#   bash tests/k8s/mock-setup.sh
+#
+# Tear down mocks only (main stack is unaffected):
+#   kubectl delete -f tests/k8s/mocks.yaml
+#   kubectl delete namespace webhooks-test
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webhooks-test
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-reliable
+  namespace: webhooks-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-reliable
+  template:
+    metadata:
+      labels:
+        app: mock-reliable
+    spec:
+      containers:
+        - name: mock-receiver
+          image: mock-receiver:local
+          imagePullPolicy: Never
+          env:
+            - name: MOCK_NAME
+              value: reliable
+            - name: MOCK_CLIENT_ERROR_PCT
+              value: "2"
+            - name: MOCK_ERROR_PCT
+              value: "3"
+            - name: MOCK_RESET_PCT
+              value: "2"
+            - name: MOCK_SLOW_PCT
+              value: "10"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-reliable
+  namespace: webhooks-test
+spec:
+  selector:
+    app: mock-reliable
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-flaky
+  namespace: webhooks-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-flaky
+  template:
+    metadata:
+      labels:
+        app: mock-flaky
+    spec:
+      containers:
+        - name: mock-receiver
+          image: mock-receiver:local
+          imagePullPolicy: Never
+          env:
+            - name: MOCK_NAME
+              value: flaky
+            - name: MOCK_CLIENT_ERROR_PCT
+              value: "5"
+            - name: MOCK_ERROR_PCT
+              value: "15"
+            - name: MOCK_RESET_PCT
+              value: "10"
+            - name: MOCK_SLOW_PCT
+              value: "20"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-flaky
+  namespace: webhooks-test
+spec:
+  selector:
+    app: mock-flaky
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-chaos
+  namespace: webhooks-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-chaos
+  template:
+    metadata:
+      labels:
+        app: mock-chaos
+    spec:
+      containers:
+        - name: mock-receiver
+          image: mock-receiver:local
+          imagePullPolicy: Never
+          env:
+            - name: MOCK_NAME
+              value: chaos
+            - name: MOCK_CLIENT_ERROR_PCT
+              value: "10"
+            - name: MOCK_ERROR_PCT
+              value: "30"
+            - name: MOCK_RESET_PCT
+              value: "20"
+            - name: MOCK_SLOW_PCT
+              value: "15"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-chaos
+  namespace: webhooks-test
+spec:
+  selector:
+    app: mock-chaos
+  ports:
+    - port: 8080
+      targetPort: 8080

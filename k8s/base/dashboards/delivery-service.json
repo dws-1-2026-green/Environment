@@ -1,0 +1,296 @@
+{
+  "title": "Delivery Service",
+  "uid": "delivery-service",
+  "version": 2,
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {
+    "refresh_intervals": ["5s", "15s", "30s", "1m", "5m"],
+    "time_options": ["1m", "10m", "1h", "3h", "1d"]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "query_result(last_over_time(go_goroutines{job=\"delivery-service\"}[10m]))",
+        "regex": "/pod=\"([^\"]+)\"/",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Messages Received",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 1,
+      "title": "Messages Received — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "delivery_messages_received_total{pod=\"$pod\"}",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "title": "Attempt Outcomes",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "title": "Attempt Outcomes — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "failure" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "delivery_attempts_total{status=\"success\", pod=\"$pod\"}",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "delivery_attempts_total{status=\"failure\", pod=\"$pod\"}",
+          "legendFormat": "failure",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "title": "Retries",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }
+    },
+    {
+      "id": 3,
+      "title": "Retries — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "delivery_retries_total{pod=\"$pod\"}",
+          "legendFormat": "retries",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "title": "Final Outcomes",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 }
+    },
+    {
+      "id": 4,
+      "title": "Final Outcomes — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "exhausted" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "delivery_final_status_total{status=\"success\", pod=\"$pod\"}",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "delivery_final_status_total{status=\"exhausted\", pod=\"$pod\"}",
+          "legendFormat": "exhausted",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "title": "Pending Deliveries",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 1 }
+    },
+    {
+      "id": 5,
+      "title": "Pending Deliveries — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 33, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "delivery_pending_total{pod=\"$pod\"}",
+          "legendFormat": "pending",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "title": "Attempt Duration",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 1 }
+    },
+    {
+      "id": 6,
+      "title": "Attempt Duration (ms) — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 41, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le)(rate(delivery_attempt_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le)(rate(delivery_attempt_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(delivery_attempt_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le)(rate(delivery_attempt_duration_seconds_bucket{pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p99",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 106,
+      "title": "Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 1 }
+    },
+    {
+      "id": 8,
+      "title": "CPU — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"delivery-service\", pod=\"$pod\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Memory — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 57, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"delivery-service\", pod=\"$pod\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"delivery-service\", pod=\"$pod\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Goroutines — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 64, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"delivery-service\", pod=\"$pod\"}",
+          "legendFormat": "goroutines",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ]
+}

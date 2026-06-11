@@ -32,7 +32,7 @@ spec:
             - containerPort: 8080
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 256Mi
           env:
             - name: KAFKA_CLUSTERS_0_NAME

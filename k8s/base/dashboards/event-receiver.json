@@ -1,0 +1,259 @@
+{
+  "title": "Event Receiver",
+  "uid": "event-receiver",
+  "version": 2,
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "query_result(last_over_time(go_goroutines{job=\"event-receiver\"}[10m]))",
+        "regex": "/pod=\"([^\"]+)\"/",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Events Received",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 1,
+      "title": "Events Received — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "event_receiver_events_received_total{pod=\"$pod\"}",
+          "legendFormat": "received",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "title": "Events Published to Kafka",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "title": "Events Published to Kafka — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "error" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "event_receiver_events_published_total{status=\"success\", pod=\"$pod\"}",
+          "legendFormat": "success",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "event_receiver_events_published_total{status=\"error\", pod=\"$pod\"}",
+          "legendFormat": "error",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "title": "HTTP Requests",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Requests (rate/sec) — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (method, path, status_code)(rate(event_receiver_http_requests_total{pod=\"$pod\"}[1m]))",
+          "legendFormat": "{{method}} {{path}} {{status_code}}",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "title": "Latency: POST /events",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 }
+    },
+    {
+      "id": 4,
+      "title": "Latency: POST /events (ms) — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/sources/{source_name}/events', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p99",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "title": "Latency: GET /health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 33, "w": 24, "h": 1 }
+    },
+    {
+      "id": 5,
+      "title": "Latency: GET /health (ms) — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 34, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/health', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/health', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p90",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/health', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le)(rate(event_receiver_http_request_duration_seconds_bucket{path='/health', pod=\"$pod\"}[1m]))) * 1000",
+          "legendFormat": "p99",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "title": "Resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 1 }
+    },
+    {
+      "id": 7,
+      "title": "CPU — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 43, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"event-receiver\", pod=\"$pod\"}[1m]) * 100",
+          "legendFormat": "cpu",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Memory — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"event-receiver\", pod=\"$pod\"}",
+          "legendFormat": "rss",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "go_memstats_heap_inuse_bytes{job=\"event-receiver\", pod=\"$pod\"}",
+          "legendFormat": "heap",
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Goroutines — $pod",
+      "type": "timeseries",
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "gridPos": { "x": 0, "y": 57, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "go_goroutines{job=\"event-receiver\", pod=\"$pod\"}",
+          "legendFormat": "goroutines",
+          "datasource": "Prometheus"
+        }
+      ]
+    }
+  ]
+}

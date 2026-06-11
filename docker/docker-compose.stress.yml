@@ -1,0 +1,95 @@
+﻿# Stress-test overlay вЂ” run on top of the main compose:
+#
+#   docker compose -f docker-compose.yml -f docker-compose_stress_test.yml up -d
+#
+# What this adds:
+#   mock-reliable  вЂ” stable endpoint, rare errors
+#   mock-flaky     вЂ” moderate errors and slow responses
+#   mock-chaos     вЂ” aggressive errors, resets, slow responses
+#   mock-setup     вЂ” one-shot: registers subscriptions for source "load-test"
+#
+# After stack is up, run the load test:
+#   go test -v -run TestLoad_10RPS -timeout 15m ./tests/e2e/
+
+services:
+
+  # в”Ђв”Ђ Mock receivers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+  mock-reliable:
+    build:
+      context: ../cmd/mock-receiver
+    container_name: mock-reliable
+    restart: unless-stopped
+    environment:
+      MOCK_NAME: reliable
+      MOCK_CLIENT_ERROR_PCT: "2"  # 2%  в†’ 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "3"         # 3%  в†’ 503, retry
+      MOCK_RESET_PCT: "2"         # 2%  в†’ conn reset, retry
+      MOCK_SLOW_PCT: "10"         # 10% в†’ 200 in 500ms-2s
+                                   # 83% в†’ 200 in 1-50ms
+    networks:
+      - mock-net
+
+  mock-flaky:
+    build:
+      context: ../cmd/mock-receiver
+    container_name: mock-flaky
+    restart: unless-stopped
+    environment:
+      MOCK_NAME: flaky
+      MOCK_CLIENT_ERROR_PCT: "5"  # 5%  в†’ 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "15"        # 15% в†’ 503, retry
+      MOCK_RESET_PCT: "10"        # 10% в†’ conn reset, retry
+      MOCK_SLOW_PCT: "20"         # 20% в†’ 200 in 500ms-2s
+                                   # 50% в†’ 200 in 1-50ms
+    networks:
+      - mock-net
+
+  mock-chaos:
+    build:
+      context: ../cmd/mock-receiver
+    container_name: mock-chaos
+    restart: unless-stopped
+    environment:
+      MOCK_NAME: chaos
+      MOCK_CLIENT_ERROR_PCT: "10" # 10% в†’ 400, fast-fail (no retry)
+      MOCK_ERROR_PCT: "30"        # 30% в†’ 503, retry
+      MOCK_RESET_PCT: "20"        # 20% в†’ conn reset, retry
+      MOCK_SLOW_PCT: "15"         # 15% в†’ 200 in 500ms-2s
+                                   # 25% в†’ 200 in 1-50ms
+    networks:
+      - mock-net
+
+  # в”Ђв”Ђ Extend existing services with mock-net в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+  # delivery-service needs mock-net to reach mock endpoints
+  delivery-service:
+    networks:
+      mock-net: {}
+
+  # subscriptions-api needs mock-net so mock-setup can reach it
+  subscriptions-api:
+    networks:
+      mock-net: {}
+
+  # в”Ђв”Ђ One-shot subscription setup в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+  mock-setup:
+    image: curlimages/curl:latest
+    container_name: mock-setup
+    restart: "no"
+    entrypoint: ["/bin/sh", "/mock-setup.sh"]
+    volumes:
+      - ./mock-setup.sh:/mock-setup.sh:ro
+    depends_on:
+      - subscriptions-api
+      - mock-reliable
+      - mock-flaky
+      - mock-chaos
+    networks:
+      - mock-net
+
+networks:
+  mock-net:
+    driver: bridge
+

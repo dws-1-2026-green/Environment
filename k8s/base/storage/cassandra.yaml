@@ -26,10 +26,10 @@ spec:
             heapSize: "512M"
         resources:
           requests:
-            cpu: 500m
+            cpu: 100m
             memory: 1Gi
           limits:
-            cpu: "1"
+            cpu: "500m"
             memory: 2Gi
   reaper:
     autoScheduling:

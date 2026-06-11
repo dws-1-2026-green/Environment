@@ -33,12 +33,49 @@ spec:
       containers:
         - name: event-receiver
           image: ghcr.io/dws-1-2026-green/eventreceiver:master
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 128Mi
-          env:
-            - name: KAFKA_BROKERS
-              value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: event-receiver
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: event-receiver
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30

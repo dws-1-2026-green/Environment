@@ -47,7 +47,14 @@ patches:
     target:
       kind: StatefulSet
       name: prometheus
-
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: csi-ceph-hdd
+    target:
+      kind: StatefulSet
+      name: delivery-postgres
+  
   # ── Node placement (по меткам узлов, не по нодпулам) ─────────────────────────
   # Данные (Cassandra, Kafka) → узлы с меткой webhooks-data=true
   # Приложение и observability (Deployments + StatefulSets) → webhooks-worker=true

@@ -29,10 +29,10 @@ spec:
         # storageClassName ("class") задаётся в overlay (demo/staging)
   resources:
     requests:
-      cpu: 500m
+      cpu: 200m
       memory: 768Mi
     limits:
-      cpu: "1"
+      cpu: "500m"
       memory: 1Gi
 ---
 apiVersion: kafka.strimzi.io/v1

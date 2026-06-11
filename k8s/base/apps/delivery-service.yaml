@@ -17,7 +17,6 @@ metadata:
   name: delivery-service
   namespace: webhooks
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: delivery-service
@@ -31,19 +30,56 @@ spec:
     spec:
       imagePullSecrets:
         - name: ghcr-credentials
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local -U ds -d delivery; do
+                echo "Waiting for PostgreSQL..."; sleep 5;
+              done
       containers:
         - name: delivery-service
-          image: ghcr.io/dws-1-2026-green/delivery-service:develop
+          image: ghcr.io/dws-1-2026-green/delivery-service:main
           ports:
             - containerPort: 9095
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          envFrom:
+            - configMapRef:
+                name: shared-config
+            - configMapRef:
+                name: delivery-service-config
           env:
-            - name: KAFKA_BROKERS
-              value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
-            - name: KAFKA_TOPIC
-              value: "deliveries.to_send"
-            - name: METRICS_ADDR
-              value: ":9095"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: delivery-postgres-credentials
+                  key: url
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: delivery-service
+  namespace: webhooks
+spec:
+  scaleTargetRef:
+    name: delivery-service
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 120
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
+        consumerGroup: delivery-group
+        topic: deliveries.to_send
+        lagThreshold: "50"
+        offsetResetPolicy: latest
