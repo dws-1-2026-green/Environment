@@ -51,6 +51,8 @@ spec:
               memory: 128Mi
           envFrom:
             - configMapRef:
+                name: shared-config
+            - configMapRef:
                 name: subscriptions-config
           env:
             - name: BUILD_TARGET

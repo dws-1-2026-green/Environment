@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: event-receiver-config
+  namespace: webhooks
+data:
+  KAFKA_TOPIC: "routing.requests"
+  LOG_LEVEL: "info"

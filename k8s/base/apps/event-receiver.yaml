@@ -46,6 +46,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: shared-config
+            - configMapRef:
+                name: event-receiver-config
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
