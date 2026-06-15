@@ -3,6 +3,12 @@ CREATE KEYSPACE IF NOT EXISTS webhooks
 WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}
  AND durable_writes = true;
 
+-- Create application user
+CREATE USER IF NOT EXISTS webhooks_user WITH PASSWORD 'webhooks_pass' NOSUPERUSER;
+
+-- Grant permissions on webhooks keyspace
+GRANT ALL PERMISSIONS ON KEYSPACE webhooks TO webhooks_user;
+
 -- Table for subscriptions
 -- Partition key: (source, event_type) - optimized for lookup by source and event type
 -- Clustering key: subscription_id - allows multiple subscriptions per (source, event_type)

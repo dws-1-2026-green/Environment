@@ -15,6 +15,7 @@ resources:
   - messaging/kafka-ui.yaml
 
   - storage/cassandra.yaml
+  - storage/cassandra-secret.yaml
   - storage/postgres.yaml
   - storage/pgbouncer.yaml
 

@@ -81,6 +81,8 @@ services:
       STORE_BACKEND: cassandra
       CASSANDRA_HOSTS: cassandra
       CASSANDRA_CONSISTENCY: LOCAL_ONE
+      CASSANDRA_USER: webhooks_user
+      CASSANDRA_PASSWORD: webhooks_pass
       HTTP_ADDR: ":8082"
       LOG_LEVEL: debug
     ports:
@@ -104,6 +106,8 @@ services:
       STORE_BACKEND: cassandra
       CASSANDRA_HOSTS: cassandra
       CASSANDRA_CONSISTENCY: LOCAL_ONE
+      CASSANDRA_USER: webhooks_user
+      CASSANDRA_PASSWORD: webhooks_pass
       METRICS_ADDR: ":9091"
       LOG_LEVEL: debug
     ports:
@@ -190,6 +194,9 @@ services:
       CASSANDRA_CLUSTER_NAME: "WebhooksCluster"
       CASSANDRA_DC: "dc1"
       CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
+      CASSANDRA_AUTHENTICATOR: "PasswordAuthenticator"
+      CASSANDRA_USER: "webhooks_user"
+      CASSANDRA_PASSWORD: "webhooks_pass"
       MAX_HEAP_SIZE: "512M"
       HEAP_NEWSIZE: "100M"
     networks:
@@ -197,7 +204,7 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
     healthcheck:
-      test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
+      test: ["CMD", "cqlsh", "-u", "webhooks_user", "-p", "webhooks_pass", "-e", "describe keyspaces"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -210,7 +217,7 @@ services:
         condition: service_healthy
     volumes:
       - ./cassandra/init.up.cql:/schema.cql:ro
-    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
+    command: ["cqlsh", "-u", "cassandra", "-p", "cassandra", "cassandra", "-f", "/schema.cql"]
     restart: "no"
     networks:
       - cassandra-net
@@ -224,7 +231,7 @@ services:
         condition: service_healthy
     volumes:
       - ./cassandra/init.down.cql:/schema.cql:ro
-    command: ["cqlsh", "cassandra", "-f", "/schema.cql"]
+    command: ["cqlsh", "-u", "cassandra", "-p", "cassandra", "cassandra", "-f", "/schema.cql"]
     restart: "no"
     networks:
       - cassandra-net
