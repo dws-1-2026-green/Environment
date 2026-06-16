@@ -13,8 +13,13 @@
 # Run:
 #   kubectl apply -f tests/k8s/test-job.yaml
 #   kubectl logs -n webhooks-test job/webhook-tests-functional -f
-#   # copy the HTML report out:
-#   kubectl cp webhooks-test/<pod>:/reports/functional.html ./functional.html
+#
+# The report is printed straight into the pod logs as readable text
+# (E2E_REPORT_FORMAT=text) — no file copy or web UI needed. To save it:
+#   kubectl logs -n webhooks-test job/webhook-tests-functional > functional-report.txt
+#
+# (Set E2E_REPORT_FORMAT=both and use a mounted volume / kubectl cp if you also
+#  want the HTML file.)
 ---
 apiVersion: v1
 kind: Namespace
@@ -76,6 +81,9 @@ spec:
             # --- In-cluster receiver returns 200 ---
             - name: E2E_ACCEPT_STATUSES
               value: "200,202"
+            # --- Report as readable text into the pod logs (no file/web UI) ---
+            - name: E2E_REPORT_FORMAT
+              value: "text"
             # --- Tuning knobs (override as needed) ---
             - name: E2E_DELIVERY_TIMEOUT
               value: "60s"

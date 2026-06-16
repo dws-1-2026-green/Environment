@@ -8,7 +8,6 @@ stringData:
   admin-user: admin
   admin-password: admin
 ---
-# ─── Grafana Service ──────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,7 +21,6 @@ spec:
     - port: 3000
       targetPort: 3000
 ---
-# ─── Grafana StatefulSet ──────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

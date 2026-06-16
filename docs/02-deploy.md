@@ -24,30 +24,38 @@ k8s/
 ├── base/                          # Общая база для всех окружений
 │   ├── kustomization.yaml
 │   ├── namespace.yaml             # Namespace: webhooks
-│   ├── config/                    # ConfigMap-ы — конфигурация вынесена сюда
-│   │   ├── shared.yaml            # KAFKA_BROKERS (общий для всех сервисов)
-│   │   ├── subscriptions.yaml     # Cassandra config (api + worker)
-│   │   └── delivery-service.yaml  # Конфиг delivery-service
-│   ├── apps/                      # Deployments + Services
+│   ├── config/                    # ConfigMap-ы с конфигурацией сервисов
+│   │   ├── shared.yaml            # KAFKA_BROKERS (общий для всех)
 │   │   ├── event-receiver.yaml
-│   │   ├── subscriptions-api.yaml
-│   │   ├── subscriptions-worker.yaml
-│   │   ├── delivery-service.yaml
-│   │   ├── hpa-event-receiver.yaml      # HPA для event-receiver
-│   │   └── keda-scaledobjects.yaml      # KEDA для kafka-консюмеров
-│   ├── messaging/                 # Kafka + Kafka UI
-│   ├── storage/                   # Cassandra + PostgreSQL
-│   └── observability/             # Prometheus, Grafana, Loki, Alloy
+│   │   ├── subscriptions.yaml     # Cassandra config (api + worker)
+│   │   └── delivery-service.yaml
+│   ├── apps/                      # Service + Deployment + autoscaler на сервис
+│   │   ├── event-receiver.yaml         # + HPA по CPU
+│   │   ├── subscriptions-api.yaml      # + HPA по CPU
+│   │   ├── subscriptions-worker.yaml   # + KEDA ScaledObject (Kafka lag)
+│   │   └── delivery-service.yaml        # + KEDA ScaledObject (Kafka lag)
+│   ├── messaging/                 # Kafka (Strimzi) + Kafka UI
+│   ├── storage/                   # Cassandra (k8ssandra) + PostgreSQL + PgBouncer
+│   ├── observability/             # Prometheus, Grafana, Loki, Alloy, delivery-dashboard
+│   ├── dashboards/                # JSON-дашборды Grafana
+│   └── platform/                  # Операторы (отдельный apply, см. шаг 3)
+│       ├── cluster-infra/         # cert-manager, KEDA, metrics-server
+│       └── k8ssandra/             # k8ssandra + cass-operator + Strimzi
+├── ingress-nginx/                 # Ingress controller (отдельный apply)
+│   ├── base/
+│   └── overlays/                  # demo / staging
 └── overlays/
-    ├── local/                     # Локальный кластер (Docker Desktop)
+    ├── local/                     # Docker Desktop (*.localhost)
     │   ├── kustomization.yaml
     │   ├── ingress.yaml           # Ingress с *.localhost хостами
-    │   ├── dev-ports.yaml         # LoadBalancer для внешнего доступа к Kafka/Cassandra
+    │   ├── dev-ports.yaml         # Внешний доступ к Kafka/Cassandra
     │   └── host-listener.yaml
-    └── staging/                   # Staging окружение
+    ├── demo/                      # demo.dws.sidey383.ru
+    └── staging/                   # staging.dws.sidey383.ru
         ├── kustomization.yaml
         ├── ingress.yaml
-        └── secrets.yaml
+        ├── secrets.yaml
+        └── cassandra-schema-patch.yaml
 ```
 
 ### Принцип base + overlays (Kustomize)
@@ -64,12 +72,13 @@ k8s/
 | Инструмент | Назначение | Установка |
 |-----------|-----------|-----------|
 | `Docker Desktop` | Локальный кластер (встроенный k8s) | https://www.docker.com/products/docker-desktop/ |
-| `kubectl` | Управление кластером | Входит в Docker Desktop |
-| `helm` | Установка KEDA, ingress, metrics-server | https://helm.sh/docs/intro/install/ |
+| `kubectl` | Управление кластером + сборка kustomize (`-k`) | Входит в Docker Desktop |
+
+Операторы (ingress-nginx, cert-manager, KEDA, metrics-server, Strimzi, k8ssandra)
+ставятся напрямую через `kubectl apply -k` — helm не требуется.
 
 ```bash
 kubectl version --client
-helm version
 ```
 
 ---
@@ -85,7 +94,7 @@ kind: ConfigMap
 metadata:
   name: shared-config
 data:
-  KAFKA_BROKERS: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+  KAFKA_BROKERS: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
 ```
 
 ### Secret — для паролей и DSN
@@ -105,7 +114,7 @@ stringData:
 # Было (плохо — конфиг внутри деплоймента):
 env:
   - name: KAFKA_BROKERS
-    value: "kafka-0.kafka.webhooks.svc.cluster.local:9094"
+    value: "kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092"
 
 # Стало (хорошо — конфиг снаружи):
 envFrom:
@@ -162,48 +171,41 @@ kubectl config use-context docker-desktop
 ### Шаг 2. Установить nginx ingress controller
 
 ```bash
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-
-helm install ingress-nginx ingress-nginx/ingress-nginx \
-  --namespace ingress-nginx \
-  --create-namespace
+kubectl apply -k k8s/ingress-nginx/base
 
 # Проверить — EXTERNAL-IP должен быть localhost
 kubectl get svc -n ingress-nginx
 ```
 
-### Шаг 3. Установить metrics-server
+### Шаг 3. Установить операторы платформы
 
-В Docker Desktop kubelet использует самоподписанный сертификат — нужен флаг `--kubelet-insecure-tls`:
+Один шаг ставит cert-manager, KEDA, metrics-server, Strimzi и k8ssandra/cass-operator:
 
 ```bash
-helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-helm repo update
-
-helm install metrics-server metrics-server/metrics-server \
-  --namespace kube-system \
-  --set args={--kubelet-insecure-tls}
-
-kubectl get deployment metrics-server -n kube-system
+kubectl apply -k k8s/base/platform --server-side
 ```
 
-### Шаг 4. Установить KEDA
+> `--server-side` обязателен — CRD операторов слишком большие для client-side apply.
+
+В Docker Desktop kubelet использует самоподписанный сертификат — добавь metrics-server
+флаг `--kubelet-insecure-tls`, иначе HPA не получит метрики CPU:
 
 ```bash
-helm repo add kedacore https://kedacore.github.io/charts
-helm repo update
+kubectl patch deployment metrics-server -n kube-system --type=json \
+  -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
 
-helm install keda kedacore/keda \
-  --namespace keda \
-  --create-namespace
+Дождись готовности операторов перед применением манифестов (CR Kafka/Cassandra
+требуют установленных CRD и запущенных операторов):
 
+```bash
+kubectl wait --for=condition=Available --timeout=300s \
+  deployment -n cert-manager --all
 kubectl get pods -n keda
-# keda-operator-xxx                   1/1   Running
-# keda-operator-metrics-apiserver-xxx 1/1   Running
+kubectl get pods -n webhooks -l app.kubernetes.io/name=strimzi-cluster-operator
 ```
 
-### Шаг 5. Создать секреты
+### Шаг 4. Создать секреты
 
 ```bash
 kubectl create namespace webhooks
@@ -214,16 +216,14 @@ kubectl create secret docker-registry ghcr-credentials \
   --docker-server=ghcr.io \
   --docker-username=ВАШ_GITHUB_USERNAME \
   --docker-password=ВАШ_GITHUB_TOKEN
-
-# PostgreSQL для delivery-service
-kubectl create secret generic delivery-postgres-credentials \
-  --namespace webhooks \
-  --from-literal=url="postgres://ds:ds-password@delivery-postgres-0.delivery-postgres.webhooks.svc.cluster.local:5432/delivery"
 ```
 
 > Токен GitHub: Settings → Developer settings → Personal access tokens → scope `read:packages`.
+>
+> Секрет `delivery-postgres-credentials` создаётся автоматически из
+> `k8s/base/storage/postgres.yaml` — вручную его создавать не нужно.
 
-### Шаг 6. Применить манифесты
+### Шаг 5. Применить манифесты
 
 ```bash
 # Из директории Environment/
@@ -235,7 +235,7 @@ kubectl kustomize k8s/overlays/local
 kubectl apply -k k8s/overlays/local
 ```
 
-### Шаг 7. Настроить локальный DNS
+### Шаг 6. Настроить локальный DNS
 
 Открой с правами администратора `C:\Windows\System32\drivers\etc\hosts` и добавь:
 
@@ -249,7 +249,7 @@ kubectl apply -k k8s/overlays/local
 127.0.0.1  delivery-dashboard.localhost
 ```
 
-### Шаг 8. Дождаться готовности
+### Шаг 7. Дождаться готовности
 
 Cassandra и Kafka стартуют 1–3 минуты. Сервисы ждут их через `initContainers`.
 
@@ -277,7 +277,7 @@ kubectl get hpa -n webhooks
 # KEDA ScaledObjects активны?
 kubectl get scaledobject -n webhooks
 # NAME                   MIN   MAX   READY   ACTIVE
-# delivery-service       2     10    True    True
+# delivery-service       1     10    True    True
 # subscriptions-worker   1     5     True    True
 ```
 
@@ -304,8 +304,9 @@ curl -X POST http://event-receiver.localhost/sources/crm-1/events \
 | Сервис | Механизм | Метрика | Порог | Min→Max |
 |--------|----------|---------|-------|---------|
 | event-receiver | HPA | CPU utilization | 70% | 1→5 |
+| subscriptions-api | HPA | CPU utilization | 70% | 1→5 |
 | subscriptions-worker | KEDA | Kafka lag / 100 | lag > 0 | 1→5 |
-| delivery-service | KEDA | Kafka lag / 50 | lag > 0 | 2→10 |
+| delivery-service | KEDA | Kafka lag / 50 | lag > 0 | 1→10 |
 
 **Почему lag, а не CPU для Kafka-консюмеров:** delivery-service ждёт HTTP-ответов от вебхуков — CPU низкий, но очередь растёт. Lag честнее отражает реальную нагрузку.
 
@@ -339,12 +340,15 @@ http://mock-reliable.webhooks-test.svc.cluster.local:8080
 | Аспект | Docker Desktop | Облако (GKE/EKS/AKS) |
 |--------|---------------|----------------------|
 | Ingress IP | `127.0.0.1` | Выдаётся облаком автоматически |
-| Ingress controller | Helm | Helm (то же) |
-| metrics-server | Helm + `--kubelet-insecure-tls` | Уже есть (GKE, AKS) или helm без флага (EKS) |
-| KEDA | Helm | Helm (то же) |
+| Ingress controller | `k8s/ingress-nginx/base` | `k8s/ingress-nginx/overlays/{demo,staging}` |
+| Операторы платформы | `k8s/base/platform` | `k8s/base/platform` (то же) |
+| metrics-server | + `--kubelet-insecure-tls` | без флага (входит в platform) |
 | Секреты | `kubectl create secret` | Рекомендуется: облачные хранилища секретов |
-| StorageClass | `hostpath` | cloud-specific (gp2, pd-ssd и т.д.) |
+| StorageClass | `hostpath` | cloud-specific (gp2, pd-ssd, csi-ceph-hdd) |
 | LoadBalancer | EXTERNAL-IP = localhost | EXTERNAL-IP = публичный IP |
+
+Порядок применения везде одинаков: **ingress-nginx → platform (ждём операторов) → overlay**.
+Storage class для облака задаётся в overlay (см. `overlays/demo`, `overlays/staging`).
 
 ### GKE
 
@@ -354,11 +358,11 @@ gcloud container clusters create dws-green \
 
 gcloud container clusters get-credentials dws-green --region=europe-central2
 
-helm install keda kedacore/keda --namespace keda --create-namespace
+kubectl apply -k k8s/ingress-nginx/overlays/staging
+kubectl apply -k k8s/base/platform --server-side
 
 kubectl create namespace webhooks
 kubectl create secret docker-registry ghcr-credentials ...
-kubectl create secret generic delivery-postgres-credentials ...
 
 kubectl apply -k k8s/overlays/staging
 ```
@@ -370,10 +374,11 @@ eksctl create cluster \
   --name dws-green --region eu-central-1 \
   --node-type t3.xlarge --nodes 3
 
-# metrics-server в EKS нет по умолчанию
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl apply -k k8s/ingress-nginx/overlays/staging
+kubectl apply -k k8s/base/platform --server-side   # включает metrics-server
 
-helm install keda kedacore/keda --namespace keda --create-namespace
+kubectl create namespace webhooks
+kubectl create secret docker-registry ghcr-credentials ...
 kubectl apply -k k8s/overlays/staging
 ```
 
@@ -385,7 +390,11 @@ az aks create --resource-group dws-green-rg --name dws-green \
 
 az aks get-credentials --resource-group dws-green-rg --name dws-green
 
-helm install keda kedacore/keda --namespace keda --create-namespace
+kubectl apply -k k8s/ingress-nginx/overlays/staging
+kubectl apply -k k8s/base/platform --server-side
+
+kubectl create namespace webhooks
+kubectl create secret docker-registry ghcr-credentials ...
 kubectl apply -k k8s/overlays/staging
 ```
 
@@ -475,13 +484,11 @@ kubectl set image deployment/event-receiver \
   event-receiver=ghcr.io/dws-1-2026-green/eventreceiver:new-tag \
   -n webhooks
 
-# Проверить партиции Kafka
-kubectl exec -n webhooks kafka-0 -- /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server localhost:9094 \
+# Проверить партиции Kafka (под Strimzi: kafka-dual-role-0)
+kubectl exec -n webhooks kafka-dual-role-0 -- /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server kafka-kafka-bootstrap:9092 \
   --describe --topic deliveries.to_send
 
-# Увеличить партиции (только вверх, обратно нельзя)
-kubectl exec -n webhooks kafka-0 -- /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server localhost:9094 \
-  --alter --topic deliveries.to_send --partitions 4
+# Партиции лучше менять через KafkaTopic CR (Strimzi topic operator):
+# отредактируй spec.partitions в k8s/base/messaging/kafka.yaml и применить заново.
 ```

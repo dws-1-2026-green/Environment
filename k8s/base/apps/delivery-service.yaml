@@ -42,7 +42,7 @@ spec:
               done
       containers:
         - name: delivery-service
-          image: ghcr.io/dws-1-2026-green/delivery-service:main
+          image: ghcr.io/dws-1-2026-green/delivery-service:20260611-9bdeddd
           imagePullPolicy: Always
           ports:
             - containerPort: 9095

@@ -32,7 +32,7 @@ spec:
         - name: ghcr-credentials
       containers:
         - name: event-receiver
-          image: ghcr.io/dws-1-2026-green/eventreceiver:master
+          image: ghcr.io/dws-1-2026-green/eventreceiver:20260522-0f5db49
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

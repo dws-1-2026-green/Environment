@@ -15,7 +15,7 @@ EventReceiver  (порт 8080)          ← HPA по CPU (1–5 реплик)
     ↓  Kafka: routing.requests
 subscriptions-worker                ← KEDA по Kafka lag (1–5 реплик)
     ↓  Kafka: deliveries.to_send
-delivery-service                    ← KEDA по Kafka lag (2–10 реплик)
+delivery-service                    ← KEDA по Kafka lag (1–10 реплик)
     ↓  HTTP POST
 Вебхук получателя
 ```
@@ -33,9 +33,9 @@ delivery-service                    ← KEDA по Kafka lag (2–10 реплик
 
 | Компонент | Роль |
 |-----------|------|
-| Kafka (KRaft) | Шина сообщений между сервисами |
-| Cassandra | Хранилище подписок |
-| PostgreSQL | Хранилище статусов доставок (delivery-service) |
+| Kafka (KRaft, Strimzi) | Шина сообщений между сервисами |
+| Cassandra (k8ssandra) | Хранилище подписок |
+| PostgreSQL + PgBouncer | Хранилище статусов доставок (delivery-service) |
 | Prometheus | Сбор метрик со всех сервисов |
 | Grafana | Дашборды: overview, event-receiver, subscriptions, delivery |
 | Loki + Alloy | Централизованные логи (только Kubernetes) |
@@ -63,6 +63,7 @@ delivery-service                    ← KEDA по Kafka lag (2–10 реплик
 | Prometheus | http://prometheus.localhost |
 | Kafka UI | http://kafka-ui.localhost |
 | Subscriptions API | http://subscriptions.localhost |
+| Delivery Dashboard | http://delivery-dashboard.localhost |
 
 ## Исходные репозитории сервисов
 

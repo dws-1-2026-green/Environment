@@ -38,15 +38,19 @@ Environment/
 │   ├── grafana/
 │   └── prometheus/
 ├── k8s/                ← Kubernetes стек (основной)
-│   ├── base/           ← манифесты всех сервисов
-│   └── overlays/       ← local / staging окружения
+│   ├── base/           ← манифесты сервисов + platform/ (операторы)
+│   ├── ingress-nginx/  ← ingress controller (отдельный apply)
+│   └── overlays/       ← local / demo / staging окружения
 ├── cmd/                ← исходники утилит
-│   ├── mock-receiver/  ← мок вебхук-получателя
+│   ├── mock-receiver/  ← мок вебхук-получателя (для k6-нагрузки)
+│   ├── report-gen/     ← генератор HTML-отчёта из go test -json
 │   └── webhook-tool/   ← консольный инструмент ручного тестирования
 └── tests/
-    ├── e2e/            ← end-to-end тесты
-    ├── load/           ← k6 скрипты
-    └── k8s/            ← моки и скрипты для k8s окружения
+    ├── suite/          ← функциональные + closed-loop тесты (Go, кейсы 1-6)
+    ├── load/           ← k6 скрипты (опциональная нагрузка)
+    ├── docker/         ← Dockerfile + entrypoint образа тестов
+    ├── k8s/            ← моки, Job для in-cluster прогона
+    └── README.md       ← полная инструкция и env-переменные
 ```
 
 ## Два способа запуска

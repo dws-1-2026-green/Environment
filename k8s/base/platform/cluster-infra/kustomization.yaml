@@ -1,13 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Кластерная инфраструктура — каждый компонент ставится в свой namespace
-# (kube-system, keda, cert-manager). Namespace здесь не задаётся.
+# Кластерные операторы — каждый в своём namespace, namespace здесь не задаётся.
 resources:
   # metrics-server — metrics.k8s.io API для HPA по CPU
   - https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.1/components.yaml
-  # KEDA — external-metrics adapter; ScaledObject / kafka-триггер по лагу
+  # KEDA — kafka-триггер по лагу для ScaledObject
   - https://github.com/kedacore/keda/releases/download/v2.19.0/keda-2.19.0.yaml
-  # cert-manager — зависимость k8ssandra-operator (TLS-webhooks)
-  # Порядок применения: cert-manager → (поды Ready) → k8ssandra-operator
+  # cert-manager — зависимость k8ssandra-operator (применять до него)
   - https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml

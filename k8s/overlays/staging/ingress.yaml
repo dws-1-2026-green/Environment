@@ -1,12 +1,5 @@
-# ─── Basic Auth Secret ────────────────────────────────────────────────────────
-# Сгенерируй htpasswd и вставь сюда:
-#   htpasswd -nb admin ТВОЙ_ПАРОЛЬ
-# Или через Docker:
-#   docker run --rm httpd:alpine htpasswd -nb admin ТВОЙ_ПАРОЛЬ
-#
-# Результат будет выглядеть так: admin:$apr1$xyz...
-# Вставь его в поле auth ниже (в base64):
-#   echo -n 'admin:$apr1$xyz...' | base64
+# Basic Auth secret. Сгенерировать значение auth:
+#   echo -n "$(htpasswd -nb admin ПАРОЛЬ)" | base64
 apiVersion: v1
 kind: Secret
 metadata:
@@ -14,12 +7,8 @@ metadata:
   namespace: webhooks
 type: Opaque
 data:
-  # echo -n 'admin:$apr1$REPLACE_WITH_HTPASSWD_HASH' | base64
   auth: YWRtaW46JGFwcjEkZ2tlanBOMnkkRzlBcG9ibk9PU2dxb2JYdlRhWVBqLw==
 ---
-# ─── Ingress ──────────────────────────────────────────────────────────────────
-# Требует установленного nginx ingress controller:
-#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -32,7 +21,6 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    # Замени на реальный домен или IP стенда
     - host: staging.dws.sidey383.ru
       http:
         paths:

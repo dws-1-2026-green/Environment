@@ -113,10 +113,12 @@ k6 run tests/load/k6-script.js
 
 **Как решать**:
 ```bash
-# Увеличить партиции (только вверх, обратно нельзя)
-kubectl exec -n webhooks kafka-0 -- /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server localhost:9094 \
-  --alter --topic deliveries.to_send --partitions 4
+# Увеличить партиции (только вверх): отредактируй spec.partitions у KafkaTopic
+# в k8s/base/messaging/kafka.yaml — Strimzi topic operator применит изменение.
+# Текущее состояние можно посмотреть так (под Strimzi: kafka-dual-role-0):
+kubectl exec -n webhooks kafka-dual-role-0 -- /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server kafka-kafka-bootstrap:9092 \
+  --describe --topic deliveries.to_send
 ```
 - Увеличить реплики потребителя (delivery-service) под новое число партиций
 

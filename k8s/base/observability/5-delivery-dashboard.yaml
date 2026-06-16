@@ -39,7 +39,7 @@ spec:
               done
       containers:
         - name: delivery-dashboard
-          image: ghcr.io/dws-1-2026-green/delivery-dashboard:main
+          image: ghcr.io/dws-1-2026-green/delivery-dashboard:20260611-9bdeddd
           imagePullPolicy: Always
           ports:
             - containerPort: 9096

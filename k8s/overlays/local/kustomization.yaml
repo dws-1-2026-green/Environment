@@ -8,8 +8,7 @@ resources:
   - dev-ports.yaml
 
 patches:
-  # Внешний доступ к Kafka для локальной разработки — external nodeport listener.
-  # Strimzi создаст сервис kafka-kafka-external-bootstrap (nodeport).
+  # Внешний доступ к Kafka (nodeport listener) для локальной разработки
   - patch: |
       - op: add
         path: /spec/kafka/listeners/-

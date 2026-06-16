@@ -38,12 +38,12 @@ spec:
             - sh
             - -c
             - |
-              until cqlsh cassandra-0.cassandra.webhooks.svc.cluster.local -e "describe keyspaces"; do
+              until cqlsh cassandra-dc1-service.webhooks.svc.cluster.local -e "describe keyspaces"; do
                 echo "Waiting for Cassandra..."; sleep 5;
               done
       containers:
         - name: subscriptions-worker
-          image: ghcr.io/dws-1-2026-green/subscriptions-worker:main
+          image: ghcr.io/dws-1-2026-green/subscriptions-worker:sha-7cc55fa
           imagePullPolicy: Always
           ports:
             - containerPort: 9091

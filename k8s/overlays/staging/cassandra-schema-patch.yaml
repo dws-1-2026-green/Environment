@@ -5,14 +5,11 @@ metadata:
   namespace: webhooks
 data:
   init.up.cql: |
-    -- Keyspace for webhook subscriptions
     CREATE KEYSPACE IF NOT EXISTS webhooks
     WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}
     AND durable_writes = true;
 
-    -- Table for subscriptions
-    -- Partition key: (source, event_type) - optimized for lookup by source and event type
-    -- Clustering key: subscription_id - allows multiple subscriptions per (source, event_type)
+    -- Lookup by (source, event_type); subscription_id как clustering key
     CREATE TABLE IF NOT EXISTS webhooks.subscriptions (
         source text,
         event_type text,
@@ -27,7 +24,7 @@ data:
       AND default_time_to_live = 0
       AND gc_grace_seconds = 86400;
 
-    -- Table for subscriptions by ID (for CRUD operations)
+    -- Lookup by subscription_id (CRUD)
     CREATE TABLE IF NOT EXISTS webhooks.subscriptions_by_id (
       subscription_id uuid PRIMARY KEY,
       source text,

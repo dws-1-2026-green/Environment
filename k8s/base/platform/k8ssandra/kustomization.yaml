@@ -1,23 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Операторы Kafka и Cassandra разворачиваются в namespace webhooks.
-# Это ключевое: WATCH_NAMESPACE у операторов вычисляется из metadata.namespace
-# (fieldRef), поэтому они автоматически следят за webhooks — без дополнительных
-# патчей и RBAC-изменений. Strimzi уже устанавливается в webhooks (?namespace=webhooks).
+# Операторы Kafka и Cassandra в namespace webhooks. WATCH_NAMESPACE берётся из
+# metadata.namespace (fieldRef), поэтому они следят за webhooks без доп. патчей.
 namespace: webhooks
 
 resources:
-  # Strimzi Cluster Operator (watch-namespace = webhooks, задан в URL)
-  - ../../../strimzi-operator
+  # Strimzi Cluster Operator (watch-namespace = webhooks)
+  - https://strimzi.io/install/latest?namespace=webhooks
   # k8ssandra-operator + cass-operator (control-plane mode, cluster-scoped CRDs)
   - github.com/k8ssandra/k8ssandra-operator/config/deployments/control-plane?ref=v1.32.1
 
+# Патчи: kustomize переносит namespace в namespaced-ресурсах, но не трогает
+# строковые значения внутри spec/annotations кластерных ресурсов — правим вручную.
 patches:
-  # kustomize переносит namespace в namespaced-ресурсах, но не трогает строковые
-  # значения внутри spec/annotations кластерных ресурсов — фиксируем вручную.
-
-  # 1. dnsNames в Certificate: оригинал содержит *.k8ssandra-operator.svc
+  # dnsNames в Certificate (оригинал: *.k8ssandra-operator.svc)
   - patch: |
       - op: replace
         path: /spec/dnsNames/0
@@ -29,8 +26,7 @@ patches:
       kind: Certificate
       name: cass-operator-serving-cert
 
-  # 2. inject-ca-from annotation в webhook-конфигурациях cass-operator:
-  #    cainjector смотрит на этот namespace для поиска CA-секрета
+  # inject-ca-from annotation в webhook-конфигурациях cass-operator (namespace CA-секрета)
   - patch: |
       - op: replace
         path: /metadata/annotations/cert-manager.io~1inject-ca-from

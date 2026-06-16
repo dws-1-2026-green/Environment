@@ -20,18 +20,22 @@
 
 ## Запуск тестов
 
+Полная инструкция и список переменных — [tests/README.md](tests/README.md),
+обзор — [docs/03-testing.md](docs/03-testing.md).
+
 ```powershell
-# Staging тесты (из корня репозитория)
-go test ./tests/e2e/ -v -run "TestStaging" -timeout 120s
+# Функциональные кейсы 1-6 → functional.html (из корня репозитория)
+$env:E2E_EVENT_RECEIVER_URL = "http://staging.dws.sidey383.ru"
+$env:E2E_SUBSCRIPTIONS_URL  = "http://subscriptions.staging.dws.sidey383.ru"
+$env:E2E_BASIC_AUTH_USER    = "admin"
+$env:E2E_BASIC_AUTH_PASS    = "..."
+$env:E2E_CALLBACK_HOST      = "<хост, достижимый из кластера>"
+$env:E2E_CALLBACK_PORT      = "8089"
+go test -json ./tests/suite/... | go run ./cmd/report-gen -out functional.html
 ```
 
-Переменные окружения (опционально, есть дефолты):
-```powershell
-$env:E2E_EVENT_RECEIVER_URL   = "http://staging.staging.dws.sidey383.ru"
-$env:E2E_SUBSCRIPTIONS_URL    = "http://subscriptions.staging.dws.sidey383.ru"
-$env:E2E_BASIC_AUTH_USER      = "admin"
-$env:E2E_BASIC_AUTH_PASS      = "..."
-```
+> Колбэк-приёмник теста должен быть достижим со стороны delivery-service —
+> задаётся через `E2E_CALLBACK_HOST:E2E_CALLBACK_PORT`.
 
 ## Сервисы в кластере
 
@@ -41,8 +45,11 @@ $env:E2E_BASIC_AUTH_PASS      = "..."
 | `subscriptions-api` | CRUD API для управления подписками |
 | `subscriptions-worker` | Обработка событий из Kafka, маршрутизация |
 | `delivery-service` | Доставка webhook-ов на внешние URL |
-| `kafka-0` | Брокер сообщений |
-| `cassandra-0` | База данных подписок |
+| `delivery-dashboard` | UI статусов доставок |
+| `kafka-dual-role-0` | Брокер сообщений (Strimzi) |
+| `cassandra-dc1-default-sts-0` | База данных подписок (k8ssandra) |
+| `delivery-postgres-0` | PostgreSQL — статусы доставок |
+| `pgbouncer` | Пул соединений к PostgreSQL |
 | `prometheus-0` | Сбор метрик |
 | `grafana-0` | Визуализация метрик |
 | `loki-0` | Агрегация логов |

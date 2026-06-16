@@ -1,223 +1,176 @@
 # Тестирование
 
 > Предварительно: стек должен быть поднят — см. [02-deploy.md](02-deploy.md).
+> Полный список переменных окружения и команд — [tests/README.md](../tests/README.md).
 > Анализ узких мест под нагрузкой: [04-load-plan.md](04-load-plan.md).
 > Ручное тестирование через утилиту: [06-tool.md](06-tool.md).
 
-Два режима тестирования:
+Тесты — **ручные, но автоматизированные**: запускаются по команде тестировщиком,
+настраиваются через переменные окружения, генерируют HTML-отчёты.
 
-| Режим | Когда использовать |
-|-------|-------------------|
-| **Kubernetes** | Полное e2e + нагрузочные тесты с реальным autoscaling |
-| **Docker Compose** | Быстрые нагрузочные тесты без k8s |
+| Слой | Кейсы | Инструмент | Отчёт |
+|------|-------|-----------|-------|
+| Функциональные | 1 доставка · 2 ретраи · 3 частичный приём · 4 fan-out · 5 смена подписки (PUT) · 6 удаление подписки (DELETE) | Go (`tests/suite`) | `functional.html` |
+| Нагрузка/стресс (closed-loop) | отправка + поглощение всех доставок, latency/throughput/pending | Go (`tests/suite`) | `load.html` / `stress.html` |
+| Нагрузка (k6, опционально) | детальные HTTP-перцентили приёма | k6 (`tests/load`) | `k6-report.html` |
+
+Подробности по каждому кейсу и всем env-переменным — в [tests/README.md](../tests/README.md).
 
 ---
 
-## Режим 1 — Kubernetes
+## Способ 1 — Docker-образ (рекомендуется)
 
-### Шаг 1. Убедиться что основной стек работает
+Один образ со всеми тестами, переносим между машинами.
 
 ```bash
-kubectl get pods -n webhooks
-# Все поды в статусе Running
+# Собрать (из корня репозитория)
+docker build -f tests/docker/Dockerfile -t webhook-tests:local .
+
+# Функциональные кейсы 1-6 → out/functional.html
+docker run --rm -v "$PWD/out:/reports" -p 8089:8089 \
+  -e E2E_EVENT_RECEIVER_URL=http://staging.dws.sidey383.ru \
+  -e E2E_SUBSCRIPTIONS_URL=http://subscriptions.staging.dws.sidey383.ru \
+  -e E2E_BASIC_AUTH_USER=admin -e E2E_BASIC_AUTH_PASS=*** \
+  -e E2E_CALLBACK_HOST=<хост-достижимый-из-кластера> -e E2E_CALLBACK_PORT=8089 \
+  webhook-tests:local functional
+
+# Closed-loop нагрузка → out/load.html
+docker run --rm -v "$PWD/out:/reports" -p 8089:8089 \
+  -e E2E_EVENT_RECEIVER_URL=... -e E2E_SUBSCRIPTIONS_URL=... \
+  -e E2E_BASIC_AUTH_USER=admin -e E2E_BASIC_AUTH_PASS=*** \
+  -e E2E_CALLBACK_HOST=<...> -e E2E_LOAD_RPS=50 -e E2E_LOAD_EVENTS=500 \
+  webhook-tests:local load
 ```
 
-Если не поднят — см. [02-deploy.md](02-deploy.md).
+> **Windows + Git Bash:** для проброса `out/` используйте абсолютный путь и
+> `MSYS_NO_PATHCONV=1`, иначе репорт останется внутри контейнера:
+> `MSYS_NO_PATHCONV=1 docker run ... -v "C:/.../out:/reports" ...`
+>
+> **Колбэк:** функциональные и closed-loop тесты поднимают приёмник вебхуков
+> внутри контейнера; `E2E_CALLBACK_HOST:E2E_CALLBACK_PORT` должен быть достижим
+> со стороны delivery-service (для Docker Desktop на Windows может потребоваться
+> правило firewall на входящий порт). k6-путь этого не требует (только исходящий).
 
-### Шаг 2. Собрать образ мока
+Команды образа: `functional` · `load` · `stress` · `all` · `k6-load` · `k6-stress`.
 
-Мок-ресивер симулирует реальный вебхук-получатель с настраиваемым хаосом.
+---
+
+## Способ 2 — Нативно (без Docker)
 
 ```bash
-# Из директории Environment/
+# Функциональные → HTML (report-gen парсит go test -json)
+go test -json ./tests/suite/... | go run ./cmd/report-gen -out functional.html
+
+# Один кейс
+go test -v ./tests/suite/ -run TestCase2_RetryOn5xx
+
+# Closed-loop нагрузка (флаг включения + параметры)
+E2E_RUN_LOAD=true E2E_LOAD_RPS=50 E2E_LOAD_EVENTS=500 \
+  go test -v ./tests/suite/ -run TestLoadClosedLoop -timeout 30m
+```
+
+Переменные окружения и значения по умолчанию — [tests/README.md](../tests/README.md).
+
+---
+
+## Способ 3 — In-cluster (Job, «идеальный» режим)
+
+Генератор и приёмник колбэков внутри кластера — трафик не выходит наружу.
+Отчёт печатается **прямо в логи пода** как текст (`E2E_REPORT_FORMAT=text`) —
+ни `kubectl cp`, ни веб-UI не нужны.
+
+```bash
+docker build -f tests/docker/Dockerfile -t webhook-tests:local .
+# kind: kind load docker-image webhook-tests:local
+
+kubectl apply -f tests/k8s/test-job.yaml
+kubectl logs -n webhooks-test job/webhook-tests-functional -f          # онлайн
+kubectl logs -n webhooks-test job/webhook-tests-functional > report.txt # сохранить
+```
+
+В `tests/k8s/test-job.yaml` есть Service, через DNS которого delivery-service
+достучится до приёмника теста. URL сервисов внутри кластера правятся там же.
+Нужен HTML — поставьте `E2E_REPORT_FORMAT=both` и заберите файл через `kubectl cp`.
+
+---
+
+## k6-путь (опционально) — моки + предзаведённые подписки
+
+k6-скрипты (`tests/load/case5_load.js`, `case6_stress.js`) не принимают вебхуки,
+поэтому доставки должны поглощать **моки** (`cmd/mock-receiver`), а подписки —
+быть заведены заранее.
+
+### Kubernetes
+
+```bash
+# Собрать образ мока
 docker build -t mock-receiver:local ./cmd/mock-receiver
-```
 
-Пересобирать при изменениях в `cmd/mock-receiver/`. `imagePullPolicy: Never` в манифесте означает: k8s использует только локально собранный образ.
-
-### Шаг 3. Задеплоить моки
-
-Моки разворачиваются в отдельном namespace `webhooks-test` — изолированно от основного стека. Delivery-service достучивается до них по внутреннему DNS: `http://mock-reliable.webhooks-test.svc.cluster.local:8080`.
-
-```bash
+# Развернуть моки (отдельный namespace webhooks-test)
 kubectl apply -f tests/k8s/mocks.yaml
-
-# Дождаться готовности
 kubectl wait --for=condition=ready pod -l app=mock-reliable -n webhooks-test --timeout=60s
-kubectl wait --for=condition=ready pod -l app=mock-flaky   -n webhooks-test --timeout=60s
-kubectl wait --for=condition=ready pod -l app=mock-chaos   -n webhooks-test --timeout=60s
-```
 
-Три мока с разными профилями хаоса:
-
-| Мок | client_error% | error% | reset% | slow% | Назначение |
-|-----|:---:|:---:|:---:|:---:|-----------|
-| `mock-reliable` | 2 | 3 | 2 | 10 | Почти всегда отвечает 200 |
-| `mock-flaky` | 5 | 15 | 10 | 20 | Умеренные ошибки |
-| `mock-chaos` | 10 | 30 | 20 | 15 | Максимальный хаос |
-
-- `client-error` → 400, delivery-service не ретраит
-- `error` → 503, запускает exponential-backoff retry
-- `reset` → TCP RST, аналог таймаута, запускает retry
-
-### Шаг 4. Зарегистрировать подписки
-
-```bash
+# Зарегистрировать подписки для source load-test → моки
 bash tests/k8s/mock-setup.sh
 ```
 
-Скрипт дождётся готовности subscriptions-api и зарегистрирует 3 подписки для source `load-test`, указывающие на k8s-сервисы моков в namespace `webhooks-test`.
+Три профиля хаоса:
 
-Проверить что подписки созданы:
-```bash
-curl http://subscriptions.localhost/api/v1/subscriptions | grep load-test
-```
+| Мок | client_error% | error% | reset% | slow% | Назначение |
+|-----|:---:|:---:|:---:|:---:|-----------|
+| `mock-reliable` | 2 | 3 | 2 | 10 | Почти всегда 200 |
+| `mock-flaky` | 5 | 15 | 10 | 20 | Умеренные ошибки |
+| `mock-chaos` | 10 | 30 | 20 | 15 | Максимальный хаос |
 
-### Шаг 5. Запустить тесты
+- `client-error` → 400 (delivery-service не ретраит)
+- `error` → 503 (exponential-backoff retry)
+- `reset` → TCP RST (аналог таймаута, retry)
 
-```bash
-# 10 RPS в течение 10 минут
-go test -v -run TestLoad_10RPS  -timeout 15m ./tests/e2e/
-
-# 50 RPS
-go test -v -run TestLoad_50RPS  -timeout 15m ./tests/e2e/
-
-# 100 RPS
-go test -v -run TestLoad_100RPS -timeout 15m ./tests/e2e/
-```
-
-Каждые 30 секунд в лог выводится: `sent / ok / err / actual rps`.
-
-### Шаг 6. Наблюдение во время теста
-
-Открой в браузере:
-
-| Что смотреть | URL | На что обращать внимание |
-|-------------|-----|--------------------------|
-| Overview | http://grafana.localhost → Overview | Kafka Lag — если растёт, консюмеры не справляются |
-| Event Receiver | http://grafana.localhost → Event Receiver | HTTP latency p99, ошибки публикации в Kafka |
-| Delivery | http://grafana.localhost → Delivery Service | Pending deliveries, attempt duration |
-| Kafka UI | http://kafka-ui.localhost | Consumer group lag в реальном времени |
-
-Логи моков:
-```bash
-kubectl logs -n webhooks-test deployment/mock-reliable -f
-kubectl logs -n webhooks-test deployment/mock-chaos    -f
-```
-
-Autoscaling в действии:
-```bash
-# Смотреть как KEDA добавляет реплики при росте lag
-kubectl get scaledobject -n webhooks -w
-
-# HPA для event-receiver
-kubectl get hpa -n webhooks -w
-```
-
-### Завершение и очистка
-
-```bash
-# Удалить только моки (основной стек не трогать)
-kubectl delete -f tests/k8s/mocks.yaml
-kubectl delete namespace webhooks-test
-
-# Удалить подписки load-test (чтобы не засорять)
-# Через Subscriptions API или напрямую в Cassandra
-```
-
----
-
-## Режим 2 — Docker Compose
-
-Быстрый способ без k8s. Моки запускаются как Docker-контейнеры, подписки регистрируются автоматически.
-
-### Запуск
+### Docker Compose
 
 ```bash
 cd docker
 docker compose -f docker-compose.yml -f docker-compose.stress.yml up -d --build
+docker logs mock-setup   # дождаться "mock-setup done"
 ```
 
-`docker-compose.stress.yml` добавляет три мока и сервис `mock-setup`, который автоматически ждёт subscriptions-api и регистрирует подписки.
-
-### Дождаться регистрации подписок
+### Запуск k6
 
 ```bash
-docker logs mock-setup
-# Ожидаемый вывод:
-# registered → mock-reliable
-# registered → mock-flaky
-# registered → mock-chaos
-# mock-setup done
+# через образ тестов
+docker run --rm -v "$PWD/out:/reports" \
+  -e E2E_EVENT_RECEIVER_URL=http://event-receiver.localhost \
+  -e E2E_LOAD_RPS=200 -e E2E_LOAD_DURATION=10m \
+  webhook-tests:local k6-load
+
+# или локально установленным k6
+k6 run -e E2E_EVENT_RECEIVER_URL=http://event-receiver.localhost \
+       -e E2E_LOAD_RPS=200 tests/load/case5_load.js
 ```
 
-Cassandra стартует ~30–60 секунд, `mock-setup` ждёт автоматически.
-
-### Запустить тест
+### Очистка моков
 
 ```bash
-# Из директории Environment/ (не docker/)
-go test -v -run TestLoad_10RPS  -timeout 15m ./tests/e2e/
-go test -v -run TestLoad_50RPS  -timeout 15m ./tests/e2e/
-go test -v -run TestLoad_100RPS -timeout 15m ./tests/e2e/
+kubectl delete -f tests/k8s/mocks.yaml && kubectl delete namespace webhooks-test
+# или: cd docker && docker compose -f docker-compose.yml -f docker-compose.stress.yml down -v
 ```
-
-### Мониторинг
-
-| Интерфейс | URL |
-|-----------|-----|
-| Grafana | http://localhost:3000 (admin / admin) |
-| Kafka UI | http://localhost:8081 |
-| Prometheus | http://localhost:9090 |
-
-Логи моков:
-```bash
-docker logs -f mock-reliable
-docker logs -f mock-chaos
-```
-
-### Остановка
-
-```bash
-cd docker
-
-# Остановить (данные в volumes сохранятся):
-docker compose -f docker-compose.yml -f docker-compose.stress.yml down
-
-# Полный сброс включая данные:
-docker compose -f docker-compose.yml -f docker-compose.stress.yml down -v
-```
-
-> **Повторный запуск**: подписки хранятся в Cassandra. При рестарте без `-v` `mock-setup` создаст дубли подписок — для чистого старта используй `-v`.
 
 ---
 
-## E2E тесты
+## Наблюдение во время прогона
 
-Проверяют базовую работоспособность — отправку события и наличие подписок:
+| Что смотреть | Local (k8s) | Staging |
+|-------------|-------------|---------|
+| Overview / Kafka Lag | http://grafana.localhost | http://grafana.staging.dws.sidey383.ru |
+| Kafka UI (consumer lag) | http://kafka-ui.localhost | http://kafka-ui.staging.dws.sidey383.ru |
+| Prometheus | http://prometheus.localhost | http://prometheus.staging.dws.sidey383.ru |
 
+Autoscaling:
 ```bash
-# Против локального k8s
-go test -v ./tests/e2e/ -run TestE2E
-
-# Против staging
-go test ./tests/e2e/ -v -run "TestStaging" -timeout 120s
+kubectl get scaledobject -n webhooks -w   # KEDA по Kafka lag
+kubectl get hpa -n webhooks -w            # HPA event-receiver
 ```
 
-Для staging — переменные окружения описаны в [05-staging.md](05-staging.md).
-
----
-
-## k6 нагрузочные тесты
-
-Альтернативный инструмент для нагрузки через `tests/load/webhook_load_test.js`:
-
-```bash
-# Windows (из директории Environment/)
-.\run-load-tests.bat
-
-# Против конкретного адреса
-.\run-load-tests.bat http://event-receiver.localhost
-```
-
-Скрипт автоматически использует локально установленный k6 или Docker-образ.
+> **Очистка подписок:** функциональные кейсы удаляют свои подписки автоматически
+> (`t.Cleanup`). Отключается через `E2E_CLEANUP=false`. k6-путь использует
+> долгоживущие подписки к мокам — их чистит `kubectl delete` / `compose down -v`.

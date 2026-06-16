@@ -7,10 +7,8 @@ resources:
   - secrets.yaml
 
 patches:
-  # ── Storage class ────────────────────────────────────────────────────────────
-  # green-2 (зона MS1): топология-aware класс csi-ceph-hdd (WaitForFirstConsumer)
-  # — том создаётся в зоне пода, работает в любой зоне. Для жёсткой привязки к зоне
-  # можно использовать csi-ceph-hdd-ms1 / csi-ceph-hdd-pa2 / csi-ceph-hdd-gz1.
+  # Storage class: топология-aware csi-ceph-hdd (WaitForFirstConsumer).
+  # Для жёсткой привязки к зоне: csi-ceph-hdd-ms1 / -pa2 / -gz1.
   - patch: |
       - op: add
         path: /spec/cassandra/datacenters/0/storageConfig/cassandraDataVolumeClaimSpec/storageClassName
@@ -18,7 +16,6 @@ patches:
     target:
       kind: K8ssandraCluster
       name: cassandra
-  # Kafka теперь управляется Strimzi → storage class задаётся на KafkaNodePool
   - patch: |
       - op: add
         path: /spec/storage/volumes/0/class
@@ -54,12 +51,10 @@ patches:
     target:
       kind: StatefulSet
       name: delivery-postgres
-  
-  # ── Node placement (по меткам узлов, не по нодпулам) ─────────────────────────
-  # Данные (Cassandra, Kafka) → узлы с меткой webhooks-data=true
-  # Приложение и observability (Deployments + StatefulSets) → webhooks-worker=true
-  # Метки навешиваются на узлы вручную/нодпулом; здесь привязка идёт только к меткам.
 
+  # Node placement по меткам узлов:
+  #   данные (Cassandra, Kafka) → webhooks-data=true
+  #   приложения и observability → webhooks-worker=true
   # Cassandra → webhooks-data
   - patch: |
       - op: add
@@ -91,7 +86,7 @@ patches:
                           values:
                             - "true"
 
-  # Все приложения (Deployments: apps + kafka-ui) → webhooks-worker
+  # Приложения (Deployments) → webhooks-worker
   - patch: |
       - op: add
         path: /spec/template/spec/nodeSelector
@@ -99,7 +94,7 @@ patches:
           webhooks-worker: "true"
     target:
       kind: Deployment
-  # Observability (StatefulSets: prometheus, grafana, loki) → webhooks-worker
+  # Observability (StatefulSets) → webhooks-worker
   - patch: |
       - op: add
         path: /spec/template/spec/nodeSelector
@@ -107,9 +102,6 @@ patches:
           webhooks-worker: "true"
     target:
       kind: StatefulSet
-
-  # Memory limits for cassandra are now defined in base K8ssandraCluster
-  # (spec.cassandra.datacenters[0].resources.limits cpu:1/memory:2Gi).
 
 secretGenerator:
   - name: grafana-credentials

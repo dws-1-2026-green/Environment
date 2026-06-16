@@ -41,6 +41,7 @@ k6 — опциональный инструмент для детальных H
 | `E2E_SUBSCRIPTIONS_URL` | URL API подписок | `http://subscriptions.dws.sidey383.ru` |
 | `E2E_BASIC_AUTH_USER` / `E2E_BASIC_AUTH_PASS` | Basic Auth (пусто = не слать) | `admin` / *(пусто)* |
 | `E2E_ACCEPT_STATUSES` | Коды «событие принято» | `200,202` |
+| `E2E_REPORT_FORMAT` | `html` (файл) · `text` (в логи) · `both` | `html` |
 | `E2E_CLEANUP` | `false` = не удалять подписки после прогона | `true` |
 | `E2E_SKIP_IF_UNREACHABLE` | `true` = skip вместо fail если сервис недоступен | `false` |
 
@@ -165,12 +166,21 @@ E2E_RUN_LOAD=true E2E_LOAD_RPS=50 E2E_LOAD_EVENTS=500 \
 
 ### In-cluster (Job)
 
+В Job отчёт печатается **прямо в логи пода** как читаемый текст
+(`E2E_REPORT_FORMAT=text` в `test-job.yaml`) — ни `kubectl cp`, ни веб-UI не нужны.
+
 ```bash
 docker build -f tests/docker/Dockerfile -t webhook-tests:local .
 kubectl apply -f tests/k8s/test-job.yaml
+
+# смотреть онлайн
 kubectl logs -n webhooks-test job/webhook-tests-functional -f
-kubectl cp webhooks-test/<pod>:/reports/functional.html ./functional.html
+# сохранить отчёт
+kubectl logs -n webhooks-test job/webhook-tests-functional > functional-report.txt
 ```
+
+Нужен и HTML-файл? Поставьте `E2E_REPORT_FORMAT=both` и смонтируйте том /
+`kubectl cp webhooks-test/<pod>:/reports/functional.html .`
 
 ---
 
@@ -185,7 +195,11 @@ kubectl cp webhooks-test/<pod>:/reports/functional.html ./functional.html
 - **`k6-report.html` / `k6-stress.html`** — плитки и таблица перцентилей приёма,
   статус порогов. Генерирует k6 в `handleSummary()` (офлайн, без внешних импортов).
 
-Все отчёты — самодостаточный HTML (открываются в браузере, годятся для презентации).
+Все HTML-отчёты — самодостаточные (открываются в браузере, годятся для презентации).
+
+**Текстовый отчёт** (`E2E_REPORT_FORMAT=text`) — те же кейсы, проверки и метрики
+в читаемом виде прямо в stdout/логи. Незаменимо для k8s Job, где файлы не вытащить:
+`kubectl logs job/... > report.txt`. `both` — и файл, и текст в логи.
 
 ---
 

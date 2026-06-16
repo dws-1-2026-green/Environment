@@ -1,12 +1,5 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# Kafka под управлением оператора Strimzi (KRaft + KafkaNodePool).
-# Требует установленного оператора Strimzi (см. k8s/strimzi-operator).
-#
-# In-cluster bootstrap-адрес: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
-#
-# ⚠️ Это НОВЫЙ кластер под управлением Strimzi — данные старого StatefulSet
-#    (PVC kafka-data-kafka-0) не переиспользуются.
-# ──────────────────────────────────────────────────────────────────────────────
+# Kafka под управлением Strimzi (KRaft + KafkaNodePool).
+# Bootstrap: kafka-kafka-bootstrap.webhooks.svc.cluster.local:9092
 apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
@@ -46,7 +39,6 @@ metadata:
 spec:
   kafka:
     version: 4.2.0
-    # metadataVersion не указываем — оператор подставит дефолт для версии Kafka
     listeners:
       - name: plain
         port: 9092
@@ -61,9 +53,7 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
-  # Kafka Exporter публикует kafka_consumergroup_lag и пр. в Prometheus.
-  # Аннотации на под, чтобы существующий Prometheus (скрейпит поды webhooks
-  # по prometheus.io/scrape) собрал метрики автоматически.
+  # Kafka Exporter — метрики consumer lag для Prometheus (скрейп по аннотациям)
   kafkaExporter:
     topicRegex: ".*"
     groupRegex: ".*"
