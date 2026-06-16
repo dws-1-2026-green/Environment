@@ -1,0 +1,93 @@
+# In-cluster test runner — the "ideal" mode where the load generator and the
+# webhook callback live inside the cluster, so traffic never leaves it and
+# network overhead is minimal.
+#
+# Prerequisites:
+#   1. Build & load the test image into the cluster:
+#        docker build -f tests/docker/Dockerfile -t webhook-tests:local .
+#        # kind:  kind load docker-image webhook-tests:local
+#        # k3s:   import into containerd, or push to a registry the cluster can pull
+#   2. Adjust E2E_EVENT_RECEIVER_URL / E2E_SUBSCRIPTIONS_URL below to the
+#      in-cluster service DNS names of your deployment.
+#
+# Run:
+#   kubectl apply -f tests/k8s/test-job.yaml
+#   kubectl logs -n webhooks-test job/webhook-tests-functional -f
+#   # copy the HTML report out:
+#   kubectl cp webhooks-test/<pod>:/reports/functional.html ./functional.html
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webhooks-test
+---
+# Stable DNS for the test pod's webhook listener so delivery-service can call back.
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-tests
+  namespace: webhooks-test
+spec:
+  selector:
+    app: webhook-tests
+  ports:
+    - name: callback
+      port: 8089
+      targetPort: 8089
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: webhook-tests-functional
+  namespace: webhooks-test
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: webhook-tests
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: tests
+          image: webhook-tests:local
+          imagePullPolicy: Never
+          args: ["functional"]
+          ports:
+            - containerPort: 8089
+          env:
+            # --- Targets (adjust to your in-cluster service DNS) ---
+            - name: E2E_EVENT_RECEIVER_URL
+              value: "http://event-receiver.webhooks.svc.cluster.local"
+            - name: E2E_SUBSCRIPTIONS_URL
+              value: "http://subscriptions-api.webhooks.svc.cluster.local"
+            # --- Auth (in-cluster usually none; set if your ingress enforces it) ---
+            - name: E2E_BASIC_AUTH_USER
+              value: ""
+            - name: E2E_BASIC_AUTH_PASS
+              value: ""
+            # --- Callback: delivery-service reaches us via the Service DNS above ---
+            - name: E2E_CALLBACK_HOST
+              value: "webhook-tests.webhooks-test.svc.cluster.local"
+            - name: E2E_CALLBACK_PORT
+              value: "8089"
+            - name: E2E_LISTEN_PORT
+              value: "8089"
+            # --- In-cluster receiver returns 200 ---
+            - name: E2E_ACCEPT_STATUSES
+              value: "200,202"
+            # --- Tuning knobs (override as needed) ---
+            - name: E2E_DELIVERY_TIMEOUT
+              value: "60s"
+            - name: E2E_RETRY_WAIT_TIMEOUT
+              value: "90s"
+            - name: E2E_MIN_RETRY_ATTEMPTS
+              value: "2"
+            - name: E2E_FANOUT
+              value: "5"
+          volumeMounts:
+            - name: reports
+              mountPath: /reports
+      volumes:
+        - name: reports
+          emptyDir: {}

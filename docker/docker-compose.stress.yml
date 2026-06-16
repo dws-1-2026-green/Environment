@@ -8,8 +8,10 @@
 #   mock-chaos     вЂ” aggressive errors, resets, slow responses
 #   mock-setup     вЂ” one-shot: registers subscriptions for source "load-test"
 #
-# After stack is up, run the load test:
-#   go test -v -run TestLoad_10RPS -timeout 15m ./tests/e2e/
+# After stack is up, run the k6 load test against source "load-test":
+#   k6 run -e E2E_EVENT_RECEIVER_URL=http://event-receiver.localhost \
+#          -e E2E_LOAD_RPS=200 tests/load/case5_load.js
+# See docs/03-testing.md for the full k6 path.
 
 services:
 
