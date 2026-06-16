@@ -78,14 +78,15 @@
     },
     {
       "id": 1,
-      "title": "Events Processed — $pod",
+      "title": "Events Processed (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "cpm", "min": 0 }, "overrides": [] },
       "targets": [
         {
-          "expr": "subscriptions_events_processed_total{pod=\"$pod\"}",
+          "expr": "sum(rate(subscriptions_events_processed_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "processed",
           "datasource": "Prometheus"
         }
@@ -100,14 +101,15 @@
     },
     {
       "id": 2,
-      "title": "Deliveries Dispatched — $pod",
+      "title": "Deliveries Dispatched (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "cpm", "min": 0 }, "overrides": [] },
       "targets": [
         {
-          "expr": "subscriptions_deliveries_dispatched_total{pod=\"$pod\"}",
+          "expr": "sum(rate(subscriptions_deliveries_dispatched_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "dispatched",
           "datasource": "Prometheus"
         }
@@ -122,13 +124,13 @@
     },
     {
       "id": 3,
-      "title": "Processing Outcomes — $pod",
+      "title": "Processing Outcomes (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "errors" },
@@ -146,12 +148,12 @@
       },
       "targets": [
         {
-          "expr": "subscriptions_events_processed_total{pod=\"$pod\"}",
+          "expr": "sum(rate(subscriptions_events_processed_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "subscriptions_routing_errors_total{pod=\"$pod\"}",
+          "expr": "sum(rate(subscriptions_routing_errors_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "errors",
           "datasource": "Prometheus"
         }

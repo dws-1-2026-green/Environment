@@ -23,7 +23,7 @@
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "events received" },
@@ -53,22 +53,22 @@
       },
       "targets": [
         {
-          "expr": "sum(event_receiver_events_received_total)",
+          "expr": "sum(rate(event_receiver_events_received_total[1m])) * 60",
           "legendFormat": "events received",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(event_receiver_events_published_total{status=\"success\"})",
+          "expr": "sum(rate(event_receiver_events_published_total{status=\"success\"}[1m])) * 60",
           "legendFormat": "events → routing.requests",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(subscriptions_events_processed_total)",
+          "expr": "sum(rate(subscriptions_events_processed_total[1m])) * 60",
           "legendFormat": "events processed",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(event_receiver_events_published_total{status=\"error\"}) or vector(0)",
+          "expr": "sum(rate(event_receiver_events_published_total{status=\"error\"}[1m])) * 60 or vector(0)",
           "legendFormat": "events failed (kafka)",
           "datasource": "Prometheus"
         }
@@ -80,7 +80,7 @@
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "deliveries dispatched" },
@@ -110,22 +110,22 @@
       },
       "targets": [
         {
-          "expr": "sum(subscriptions_deliveries_dispatched_total)",
+          "expr": "sum(rate(subscriptions_deliveries_dispatched_total[1m])) * 60",
           "legendFormat": "deliveries dispatched",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_messages_received_total)",
+          "expr": "sum(rate(delivery_messages_received_total[1m])) * 60",
           "legendFormat": "deliveries consumed",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_final_status_total{status=\"success\"})",
+          "expr": "sum(rate(delivery_final_status_total{status=\"success\"}[1m])) * 60",
           "legendFormat": "deliveries: success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "sum(delivery_final_status_total{status=\"exhausted\"}) or vector(0)",
+          "expr": "sum(rate(delivery_final_status_total{status=\"exhausted\"}[1m])) * 60 or vector(0)",
           "legendFormat": "deliveries: exhausted",
           "datasource": "Prometheus"
         }

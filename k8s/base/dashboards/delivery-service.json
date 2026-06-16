@@ -37,14 +37,15 @@
     },
     {
       "id": 1,
-      "title": "Messages Received — $pod",
+      "title": "Messages Received (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 1, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "cpm", "min": 0 }, "overrides": [] },
       "targets": [
         {
-          "expr": "delivery_messages_received_total{pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_messages_received_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "received",
           "datasource": "Prometheus"
         }
@@ -59,13 +60,13 @@
     },
     {
       "id": 2,
-      "title": "Attempt Outcomes — $pod",
+      "title": "Attempt Outcomes (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "failure" },
@@ -83,12 +84,12 @@
       },
       "targets": [
         {
-          "expr": "delivery_attempts_total{status=\"success\", pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_attempts_total{status=\"success\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "delivery_attempts_total{status=\"failure\", pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_attempts_total{status=\"failure\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "failure",
           "datasource": "Prometheus"
         }
@@ -103,18 +104,18 @@
     },
     {
       "id": 3,
-      "title": "Retries — $pod",
+      "title": "Retries (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } },
+        "defaults": { "unit": "cpm", "min": 0, "color": { "mode": "fixed", "fixedColor": "orange" } },
         "overrides": []
       },
       "targets": [
         {
-          "expr": "delivery_retries_total{pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_retries_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "retries",
           "datasource": "Prometheus"
         }
@@ -129,13 +130,13 @@
     },
     {
       "id": 4,
-      "title": "Final Outcomes — $pod",
+      "title": "Final Outcomes (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "exhausted" },
@@ -153,12 +154,12 @@
       },
       "targets": [
         {
-          "expr": "delivery_final_status_total{status=\"success\", pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_final_status_total{status=\"success\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "delivery_final_status_total{status=\"exhausted\", pod=\"$pod\"}",
+          "expr": "sum(rate(delivery_final_status_total{status=\"exhausted\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "exhausted",
           "datasource": "Prometheus"
         }

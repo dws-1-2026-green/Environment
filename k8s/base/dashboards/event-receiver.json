@@ -33,14 +33,15 @@
     },
     {
       "id": 1,
-      "title": "Events Received — $pod",
+      "title": "Events Received (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 1, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "cpm", "min": 0 }, "overrides": [] },
       "targets": [
         {
-          "expr": "event_receiver_events_received_total{pod=\"$pod\"}",
+          "expr": "sum(rate(event_receiver_events_received_total{pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "received",
           "datasource": "Prometheus"
         }
@@ -55,13 +56,13 @@
     },
     {
       "id": 2,
-      "title": "Events Published to Kafka — $pod",
+      "title": "Events Published to Kafka (per min) — $pod",
       "type": "timeseries",
       "repeat": "pod",
       "repeatDirection": "h",
       "gridPos": { "x": 0, "y": 9, "w": 12, "h": 7 },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "unit": "cpm", "min": 0 },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "error" },
@@ -79,12 +80,12 @@
       },
       "targets": [
         {
-          "expr": "event_receiver_events_published_total{status=\"success\", pod=\"$pod\"}",
+          "expr": "sum(rate(event_receiver_events_published_total{status=\"success\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "success",
           "datasource": "Prometheus"
         },
         {
-          "expr": "event_receiver_events_published_total{status=\"error\", pod=\"$pod\"}",
+          "expr": "sum(rate(event_receiver_events_published_total{status=\"error\", pod=\"$pod\"}[1m])) * 60",
           "legendFormat": "error",
           "datasource": "Prometheus"
         }
